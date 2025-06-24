@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  LayoutChangeEvent,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -23,17 +24,16 @@ interface StoryStep {
 
 const CHOICES_PANE_HEIGHT = 300;
 const CHOICES_PANE_HEIGHT_LOADING = 64;
-const REGEN_BAR_HEIGHT = 64;
 
-function StoryNode({
-  story,
-  choice,
-  isDark,
-}: {
-  story: string;
-  choice: string | null;
-  isDark: boolean;
-}) {
+const StoryNode = React.forwardRef<
+  View,
+  {
+    story: string;
+    choice: string | null;
+    isDark: boolean;
+    onLayout?: (e: LayoutChangeEvent) => void;
+  }
+>(({ story, choice, isDark, onLayout }, _ref) => {
   const {
     imageUrl,
     loading: imageLoading,
@@ -48,7 +48,7 @@ function StoryNode({
   }, [story, regenerateImage]);
 
   return (
-    <View style={styles.storyBlock}>
+    <View style={styles.storyBlock} onLayout={onLayout}>
       {choice && (
         <ThemedText
           style={[styles.choiceLabel, isDark && styles.choiceLabelDark]}
@@ -93,7 +93,7 @@ function StoryNode({
       </ThemedText>
     </View>
   );
-}
+});
 
 export default function StoryScreen() {
   const { seed } = useLocalSearchParams();
@@ -110,6 +110,7 @@ export default function StoryScreen() {
   const prevLoading = useRef(false);
   const colorScheme = useColorScheme();
   const isDark = colorScheme === "dark";
+  const latestY = useRef<number | null>(null);
 
   // On first load, add the first story node
   useEffect(() => {
@@ -136,14 +137,14 @@ export default function StoryScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story, loading, error]);
 
-  // Auto-scroll to bottom when steps change
   useEffect(() => {
-    if (scrollViewRef.current) {
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+    if (latestY.current !== null && scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({
+        y: latestY.current - 24,
+        animated: true,
+      });
     }
-  }, [steps.length]);
+  }, [latestY]);
 
   useEffect(() => {
     const toValue = loading ? CHOICES_PANE_HEIGHT_LOADING : CHOICES_PANE_HEIGHT;
@@ -176,6 +177,11 @@ export default function StoryScreen() {
             story={step.story}
             choice={step.choice}
             isDark={isDark}
+            onLayout={
+              idx === steps.length - 1
+                ? (e) => (latestY.current = e.nativeEvent.layout.y)
+                : undefined
+            }
           />
         ))}
         {/* Choices and divider below the latest narrative node */}

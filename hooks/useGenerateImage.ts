@@ -34,9 +34,7 @@ export function useGenerateImage(prompt: string | undefined) {
         throw new Error("Failed to generate image");
       }
       const data = await response.json();
-      console.log("getimg.ai API response:", data);
       const url = data.image_url || data.url || data.images?.[0]?.url || null;
-      console.log("Extracted imageUrl:", url);
       setImageUrl(url);
     } catch (err: any) {
       console.log("Error generating image:", err.message);
@@ -48,5 +46,3 @@ export function useGenerateImage(prompt: string | undefined) {
 
   return { imageUrl, loading, error, regenerate: generate };
 }
-
-console.log("StoryScreen rendered");
