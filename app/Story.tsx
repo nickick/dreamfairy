@@ -95,18 +95,10 @@ export default function StoryScreen() {
     >
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={[
-          styles.scrollContainer,
-          { paddingBottom: CHOICES_PANE_HEIGHT + REGEN_BAR_HEIGHT + 32 },
-        ]}
+        contentContainerStyle={[styles.scrollContainer, { paddingBottom: 48 }]}
         showsVerticalScrollIndicator={false}
       >
-        <ThemedText type="title" style={styles.header}>
-          Your Story Begins!
-        </ThemedText>
-        <ThemedText type="subtitle" style={styles.subtitle}>
-          Seed: {seed}
-        </ThemedText>
+        {/* Narrative nodes */}
         {steps.map((step, idx) => (
           <View key={idx} style={styles.storyBlock}>
             {step.choice && (
@@ -126,113 +118,89 @@ export default function StoryScreen() {
             </ThemedText>
           </View>
         ))}
-        {loading && (
-          <ActivityIndicator
-            size="large"
-            color="#1D3D47"
-            style={{ marginVertical: 32 }}
-          />
-        )}
-        {error && (
+        {/* Choices and divider below the latest narrative node */}
+        {((choices && choices.length > 0) || loading) && (
           <>
-            <ThemedText style={styles.errorText}>{error}</ThemedText>
-            <TouchableOpacity onPress={regenerate} style={styles.retryButton}>
-              <ThemedText style={styles.retryButtonText}>Try Again</ThemedText>
-            </TouchableOpacity>
-          </>
-        )}
-      </ScrollView>
-      {/* Bottom Bar: Gradient Title + Choices + Regenerate Button */}
-      {(choices && choices.length > 0) || loading ? (
-        <View style={[styles.bottomBar, isDark && styles.bottomBarDark]}>
-          <LinearGradient
-            colors={isDark ? ["#a259ff", "#ff8859"] : ["#a259ff", "#ff8859"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.gradientBar}
-          >
-            <ThemedText
-              style={[
-                styles.gradientBarText,
-                isDark && styles.gradientBarTextDark,
-              ]}
-            >
-              What will you do next?
-            </ThemedText>
-          </LinearGradient>
-          <Animated.View
-            style={[
-              styles.choicesPane,
-              { height: choicesPanelHeight },
-              isDark && styles.choicesPaneDark,
-            ]}
-          >
-            <ScrollView
-              contentContainerStyle={styles.choicesPaneContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {loading ? (
-                <ActivityIndicator
-                  size="large"
-                  color={isDark ? "#fff" : "#1D3D47"}
-                  style={{ marginVertical: 16 }}
-                />
-              ) : (
-                <>
-                  {choices.map((choice, idx) => (
-                    <TouchableOpacity
-                      key={idx}
-                      style={[
-                        styles.choiceButton,
-                        isDark && styles.choiceButtonDark,
-                      ]}
-                      onPress={() => handleChoice(choice)}
-                    >
-                      <ThemedText
-                        style={[
-                          styles.choiceButtonText,
-                          isDark && styles.choiceButtonTextDark,
-                        ]}
-                      >
-                        {choice}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  ))}
-                  {/* Divider with 'or' */}
-                  <View style={styles.orDividerContainer}>
-                    <ThemedText
-                      style={[
-                        styles.orText,
-                        isDark ? styles.orTextDark : styles.orTextLight,
-                      ]}
-                    >
-                      <>{"or"}</>
-                    </ThemedText>
-                    <View style={styles.dividerLine} />
-                  </View>
-                  {/* Regenerate Story Button */}
-                  <TouchableOpacity
-                    onPress={regenerate}
+            {/* Only show spinner when loading, otherwise show divider, choices, and regenerate button */}
+            {loading ? (
+              <ActivityIndicator
+                size="large"
+                color={isDark ? "#fff" : "#1D3D47"}
+                style={{ marginVertical: 24 }}
+              />
+            ) : (
+              <>
+                {/* Gradient divider */}
+                <LinearGradient
+                  colors={
+                    isDark ? ["#a259ff", "#ff8859"] : ["#a259ff", "#ff8859"]
+                  }
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.gradientBarInline}
+                >
+                  <ThemedText
                     style={[
-                      styles.regenButtonSmall,
-                      isDark && styles.regenButtonSmallDark,
+                      styles.gradientBarText,
+                      isDark && styles.gradientBarTextDark,
                     ]}
+                  >
+                    What will you do next?
+                  </ThemedText>
+                </LinearGradient>
+                {/* Choices */}
+                {choices.map((choice, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={[
+                      styles.choiceButton,
+                      isDark && styles.choiceButtonDark,
+                    ]}
+                    onPress={() => handleChoice(choice)}
                   >
                     <ThemedText
                       style={[
-                        styles.regenButtonSmallText,
-                        isDark && styles.regenButtonSmallTextDark,
+                        styles.choiceButtonText,
+                        isDark && styles.choiceButtonTextDark,
                       ]}
                     >
-                      Regenerate Story
+                      {choice}
                     </ThemedText>
                   </TouchableOpacity>
-                </>
-              )}
-            </ScrollView>
-          </Animated.View>
-        </View>
-      ) : null}
+                ))}
+                {/* Divider with 'or' and regenerate button */}
+                <View style={styles.orDividerContainerInline}>
+                  <ThemedText
+                    style={[
+                      styles.orText,
+                      isDark ? styles.orTextDark : styles.orTextLight,
+                    ]}
+                  >
+                    <>{"or"}</>
+                  </ThemedText>
+                  <View style={styles.dividerLine} />
+                </View>
+                <TouchableOpacity
+                  onPress={regenerate}
+                  style={[
+                    styles.regenButtonSmall,
+                    isDark && styles.regenButtonSmallDark,
+                  ]}
+                >
+                  <ThemedText
+                    style={[
+                      styles.regenButtonSmallText,
+                      isDark && styles.regenButtonSmallTextDark,
+                    ]}
+                  >
+                    Regenerate Story
+                  </ThemedText>
+                </TouchableOpacity>
+              </>
+            )}
+          </>
+        )}
+      </ScrollView>
     </ThemedView>
   );
 }
@@ -368,7 +336,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginVertical: 4,
     alignItems: "center",
-    width: "90%",
+    width: "98%",
     alignSelf: "center",
   },
   choiceButtonDark: {
@@ -399,7 +367,7 @@ const styles = StyleSheet.create({
     left: "50%",
     transform: [{ translateX: -18 }], // half of typical text width
     top: "50%",
-    marginTop: -12, // was -10, now -12 to move up 2px
+    marginTop: -13, // was -10, now -13 to move up 3px
   },
   orTextLight: {
     backgroundColor: "#fff",
@@ -412,7 +380,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ccc",
     width: "80%",
     alignSelf: "center",
-    marginTop: 0,
+    marginTop: 12,
     marginBottom: 0,
     zIndex: 1,
     position: "relative",
@@ -438,5 +406,23 @@ const styles = StyleSheet.create({
   },
   regenButtonSmallTextDark: {
     color: "#fff",
+  },
+  gradientBarInline: {
+    width: "100%",
+    paddingVertical: 14,
+    paddingHorizontal: 0,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+    marginBottom: 20,
+  },
+  orDividerContainerInline: {
+    alignItems: "center",
+    marginTop: 16,
+    marginBottom: 8,
+    width: "100%",
+    position: "relative",
+    height: 24,
   },
 });
