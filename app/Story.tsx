@@ -1,5 +1,6 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { useGenerateImage } from "@/hooks/useGenerateImage";
 import { useGenerateStory } from "@/hooks/useGenerateStory";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
@@ -23,6 +24,76 @@ interface StoryStep {
 const CHOICES_PANE_HEIGHT = 300;
 const CHOICES_PANE_HEIGHT_LOADING = 64;
 const REGEN_BAR_HEIGHT = 64;
+
+function StoryNode({
+  story,
+  choice,
+  isDark,
+}: {
+  story: string;
+  choice: string | null;
+  isDark: boolean;
+}) {
+  const {
+    imageUrl,
+    loading: imageLoading,
+    error: imageError,
+    regenerate: regenerateImage,
+  } = useGenerateImage(story);
+
+  useEffect(() => {
+    if (story) {
+      regenerateImage();
+    }
+  }, [story, regenerateImage]);
+
+  return (
+    <View style={styles.storyBlock}>
+      {choice && (
+        <ThemedText
+          style={[styles.choiceLabel, isDark && styles.choiceLabelDark]}
+        >
+          You chose: {choice}
+        </ThemedText>
+      )}
+      {/* Image above the story text */}
+      <View style={styles.imageContainer}>
+        {imageLoading && (
+          <ActivityIndicator
+            size="large"
+            color={isDark ? "#fff" : "#1D3D47"}
+            style={{ marginVertical: 16 }}
+          />
+        )}
+        {imageUrl && (
+          <Animated.Image
+            source={{ uri: imageUrl }}
+            style={styles.storyImage}
+            resizeMode="cover"
+          />
+        )}
+        {imageError && (
+          <TouchableOpacity
+            onPress={regenerateImage}
+            style={styles.imageErrorButton}
+          >
+            <ThemedText style={styles.imageErrorText}>
+              Image failed to load. Tap to retry.
+            </ThemedText>
+          </TouchableOpacity>
+        )}
+      </View>
+      <ThemedText
+        style={[
+          styles.storyText,
+          isDark ? styles.storyTextDark : styles.storyTextLight,
+        ]}
+      >
+        {story}
+      </ThemedText>
+    </View>
+  );
+}
 
 export default function StoryScreen() {
   const { seed } = useLocalSearchParams();
@@ -100,23 +171,12 @@ export default function StoryScreen() {
       >
         {/* Narrative nodes */}
         {steps.map((step, idx) => (
-          <View key={idx} style={styles.storyBlock}>
-            {step.choice && (
-              <ThemedText
-                style={[styles.choiceLabel, isDark && styles.choiceLabelDark]}
-              >
-                You chose: {step.choice}
-              </ThemedText>
-            )}
-            <ThemedText
-              style={[
-                styles.storyText,
-                isDark ? styles.storyTextDark : styles.storyTextLight,
-              ]}
-            >
-              {step.story}
-            </ThemedText>
-          </View>
+          <StoryNode
+            key={idx}
+            story={step.story}
+            choice={step.choice}
+            isDark={isDark}
+          />
         ))}
         {/* Choices and divider below the latest narrative node */}
         {((choices && choices.length > 0) || loading) && (
@@ -424,5 +484,29 @@ const styles = StyleSheet.create({
     width: "100%",
     position: "relative",
     height: 24,
+  },
+  imageContainer: {
+    width: "100%",
+    alignItems: "center",
+    marginBottom: 12,
+    minHeight: 140,
+  },
+  storyImage: {
+    width: "100%",
+    height: 200,
+    borderRadius: 14,
+    marginBottom: 8,
+    backgroundColor: "#222",
+  },
+  imageErrorButton: {
+    marginVertical: 8,
+    padding: 8,
+    backgroundColor: "#c00",
+    borderRadius: 8,
+  },
+  imageErrorText: {
+    color: "#fff",
+    fontSize: 14,
+    textAlign: "center",
   },
 });
