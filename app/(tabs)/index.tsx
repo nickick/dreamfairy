@@ -1,5 +1,6 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
   FlatList,
@@ -20,11 +21,11 @@ const STORY_SEEDS = [
 export default function HomeScreen() {
   const [selectedSeed, setSelectedSeed] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const handleStartStory = () => {
     if (selectedSeed) {
-      // TODO: Implement story creation logic
-      alert(`Starting story: ${selectedSeed}`);
+      router.push({ pathname: "/Story", params: { seed: selectedSeed } });
     }
   };
 
