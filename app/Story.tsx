@@ -6,6 +6,8 @@ import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -17,7 +19,8 @@ interface StoryStep {
   choice: string | null; // null for the first node
 }
 
-const CHOICES_PANE_HEIGHT = 220;
+const CHOICES_PANE_HEIGHT = 300;
+const CHOICES_PANE_HEIGHT_LOADING = 64;
 const REGEN_BAR_HEIGHT = 64;
 
 export default function StoryScreen() {
@@ -29,6 +32,10 @@ export default function StoryScreen() {
     history
   );
   const scrollViewRef = useRef<ScrollView>(null);
+  const [choicesPanelHeight] = useState(
+    new Animated.Value(CHOICES_PANE_HEIGHT)
+  );
+  const prevLoading = useRef(false);
 
   // On first load, add the first story node
   useEffect(() => {
@@ -63,6 +70,17 @@ export default function StoryScreen() {
       }, 100);
     }
   }, [steps.length]);
+
+  useEffect(() => {
+    const toValue = loading ? CHOICES_PANE_HEIGHT_LOADING : CHOICES_PANE_HEIGHT;
+    Animated.timing(choicesPanelHeight, {
+      toValue,
+      duration: 350,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+    prevLoading.current = loading;
+  }, [loading, choicesPanelHeight]);
 
   const handleChoice = (choice: string) => {
     setHistory((prev) => [...prev, choice]);
@@ -111,7 +129,7 @@ export default function StoryScreen() {
         )}
       </ScrollView>
       {/* Bottom Bar: Gradient Title + Choices + Regenerate Button */}
-      {!loading && !error && choices && choices.length > 0 && (
+      {(choices && choices.length > 0) || loading ? (
         <View style={styles.bottomBar}>
           <LinearGradient
             colors={["#a259ff", "#ff8859"]}
@@ -123,30 +141,41 @@ export default function StoryScreen() {
               What will you do next?
             </ThemedText>
           </LinearGradient>
-          <ScrollView
-            style={styles.choicesPane}
-            contentContainerStyle={styles.choicesPaneContent}
-            showsVerticalScrollIndicator={false}
+          <Animated.View
+            style={[styles.choicesPane, { height: choicesPanelHeight }]}
           >
-            {choices.map((choice, idx) => (
-              <TouchableOpacity
-                key={idx}
-                style={styles.choiceButton}
-                onPress={() => handleChoice(choice)}
-              >
-                <ThemedText style={styles.choiceButtonText}>
-                  {choice}
-                </ThemedText>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+            <ScrollView
+              contentContainerStyle={styles.choicesPaneContent}
+              showsVerticalScrollIndicator={false}
+            >
+              {loading ? (
+                <ActivityIndicator
+                  size="large"
+                  color="#1D3D47"
+                  style={{ marginVertical: 16 }}
+                />
+              ) : (
+                choices.map((choice, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={styles.choiceButton}
+                    onPress={() => handleChoice(choice)}
+                  >
+                    <ThemedText style={styles.choiceButtonText}>
+                      {choice}
+                    </ThemedText>
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </Animated.View>
           <TouchableOpacity onPress={regenerate} style={styles.regenButton}>
             <ThemedText style={styles.regenButtonText}>
               Regenerate Story
             </ThemedText>
           </TouchableOpacity>
         </View>
-      )}
+      ) : null}
     </ThemedView>
   );
 }
@@ -240,9 +269,11 @@ const styles = StyleSheet.create({
   },
   choicesPane: {
     width: "100%",
-    maxHeight: CHOICES_PANE_HEIGHT - 16,
+    maxHeight: CHOICES_PANE_HEIGHT,
     marginBottom: 0,
     paddingBottom: 0,
+    overflow: "hidden",
+    justifyContent: "center",
   },
   choicesPaneContent: {
     alignItems: "center",
@@ -256,7 +287,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginVertical: 4,
     alignItems: "center",
-    width: 260,
+    width: "90%",
+    alignSelf: "center",
   },
   choiceButtonText: {
     color: "#1D3D47",
