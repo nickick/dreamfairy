@@ -51,7 +51,9 @@ export default function HomeScreen() {
               ]}
               onPress={() => setSelectedSeed(item)}
             >
-              <ThemedText type="defaultSemiBold">{item}</ThemedText>
+              <ThemedText type="defaultSemiBold" style={styles.seedCardText}>
+                {item}
+              </ThemedText>
             </TouchableOpacity>
           )}
           contentContainerStyle={styles.seedList}
@@ -61,7 +63,15 @@ export default function HomeScreen() {
           onPress={handleStartStory}
           disabled={!selectedSeed}
         >
-          <ThemedText type="defaultSemiBold" style={styles.startButtonText}>
+          <ThemedText
+            type="defaultSemiBold"
+            style={[
+              styles.startButtonText,
+              !selectedSeed
+                ? styles.startButtonTextDisabled
+                : styles.startButtonTextEnabled,
+            ]}
+          >
             Start Story
           </ThemedText>
         </TouchableOpacity>
@@ -115,12 +125,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 24,
     alignItems: "center",
+    marginBottom: 24,
   },
   disabledButton: {
     backgroundColor: "#cccccc",
   },
+  seedCardText: {
+    color: "#111",
+  },
   startButtonText: {
-    color: "#fff",
     fontSize: 18,
+  },
+  startButtonTextEnabled: {
+    color: "#fff",
+  },
+  startButtonTextDisabled: {
+    color: "#111",
   },
 });
