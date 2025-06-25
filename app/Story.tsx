@@ -1,5 +1,7 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { storyThemeMap } from "@/constants/Themes";
+import { useTheme } from "@/contexts/ThemeContext";
 import { useGenerateImage } from "@/hooks/useGenerateImage";
 import { useGenerateStory } from "@/hooks/useGenerateStory";
 import { LinearGradient } from "expo-linear-gradient";
@@ -31,9 +33,11 @@ const StoryNode = React.forwardRef<
     story: string;
     choice: string | null;
     isDark: boolean;
+    colors: any;
+    theme: any;
     onLayout?: (e: LayoutChangeEvent) => void;
   }
->(({ story, choice, isDark, onLayout }, _ref) => {
+>(({ story, choice, isDark, colors, theme, onLayout }, _ref) => {
   const {
     imageUrl,
     loading: imageLoading,
@@ -51,7 +55,13 @@ const StoryNode = React.forwardRef<
     <View style={styles.storyBlock} onLayout={onLayout}>
       {choice && (
         <ThemedText
-          style={[styles.choiceLabel, isDark && styles.choiceLabelDark]}
+          style={[
+            styles.choiceLabel,
+            {
+              fontFamily: theme.fonts.body,
+              color: isDark ? colors.text : colors.text,
+            },
+          ]}
         >
           You chose: {choice}
         </ThemedText>
@@ -61,23 +71,43 @@ const StoryNode = React.forwardRef<
         {imageLoading && (
           <ActivityIndicator
             size="large"
-            color={isDark ? "#fff" : "#1D3D47"}
+            color={colors.text}
             style={{ marginVertical: 16 }}
           />
         )}
         {imageUrl && (
           <Animated.Image
             source={{ uri: imageUrl }}
-            style={styles.storyImage}
+            style={[
+              styles.storyImage,
+              {
+                borderColor: colors.border,
+                borderRadius: theme.styles.borderRadius,
+                borderWidth: theme.styles.borderWidth,
+              },
+            ]}
             resizeMode="cover"
           />
         )}
         {imageError && (
           <TouchableOpacity
             onPress={regenerateImage}
-            style={styles.imageErrorButton}
+            style={[
+              styles.imageErrorButton,
+              {
+                backgroundColor: colors.accent,
+                borderColor: colors.border,
+                borderRadius: theme.styles.borderRadius,
+                borderWidth: theme.styles.borderWidth,
+              },
+            ]}
           >
-            <ThemedText style={styles.imageErrorText}>
+            <ThemedText
+              style={[
+                styles.imageErrorText,
+                { fontFamily: theme.fonts.button, color: colors.text },
+              ]}
+            >
               Image failed to load. Tap to retry.
             </ThemedText>
           </TouchableOpacity>
@@ -86,7 +116,18 @@ const StoryNode = React.forwardRef<
       <ThemedText
         style={[
           styles.storyText,
-          isDark ? styles.storyTextDark : styles.storyTextLight,
+          {
+            backgroundColor: colors.primary,
+            color: colors.text,
+            borderColor: colors.border,
+            fontFamily: theme.fonts.body,
+            borderRadius: theme.styles.borderRadius,
+            borderWidth: theme.styles.borderWidth,
+            shadowColor: colors.border,
+            shadowOffset: theme.styles.shadowOffset,
+            shadowOpacity: theme.styles.shadowOpacity,
+            shadowRadius: theme.styles.shadowRadius,
+          },
         ]}
       >
         {story}
@@ -109,8 +150,16 @@ export default function StoryScreen() {
   );
   const prevLoading = useRef(false);
   const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const { theme, isDark, setThemeName } = useTheme();
+  const colors = isDark ? theme.colors.dark : theme.colors.light;
   const latestY = useRef<number | null>(null);
+
+  // Set theme based on story seed
+  useEffect(() => {
+    if (typeof seed === "string" && storyThemeMap[seed]) {
+      setThemeName(storyThemeMap[seed]);
+    }
+  }, [seed, setThemeName]);
 
   // On first load, add the first story node
   useEffect(() => {
@@ -163,7 +212,7 @@ export default function StoryScreen() {
 
   return (
     <ThemedView
-      style={[styles.outerContainer, isDark && styles.outerContainerDark]}
+      style={[styles.outerContainer, { backgroundColor: colors.background }]}
     >
       <ScrollView
         ref={scrollViewRef}
@@ -177,6 +226,8 @@ export default function StoryScreen() {
             story={step.story}
             choice={step.choice}
             isDark={isDark}
+            colors={colors}
+            theme={theme}
             onLayout={
               idx === steps.length - 1
                 ? (e) => (latestY.current = e.nativeEvent.layout.y)
@@ -191,7 +242,7 @@ export default function StoryScreen() {
             {loading ? (
               <ActivityIndicator
                 size="large"
-                color={isDark ? "#fff" : "#1D3D47"}
+                color={colors.text}
                 style={{ marginVertical: 24 }}
               />
             ) : (
@@ -199,16 +250,27 @@ export default function StoryScreen() {
                 {/* Gradient divider */}
                 <LinearGradient
                   colors={
-                    isDark ? ["#E84393", "#6C5CE7", "#0984E3"] : ["#FD79A8", "#A29BFE", "#74B9FF"]
+                    theme.colors[isDark ? "dark" : "light"]
+                      .gradientColors as any
                   }
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
-                  style={styles.gradientBarInline}
+                  style={[
+                    styles.gradientBarInline,
+                    {
+                      borderColor: colors.border,
+                      borderRadius: theme.styles.borderRadius,
+                      borderWidth: theme.styles.borderWidth,
+                    },
+                  ]}
                 >
                   <ThemedText
                     style={[
                       styles.gradientBarText,
-                      isDark && styles.gradientBarTextDark,
+                      {
+                        fontFamily: theme.fonts.title,
+                        color: isDark ? "#111" : "#111",
+                      },
                     ]}
                   >
                     What will you do next?
@@ -220,14 +282,23 @@ export default function StoryScreen() {
                     key={idx}
                     style={[
                       styles.choiceButton,
-                      isDark && styles.choiceButtonDark,
+                      {
+                        backgroundColor: colors.secondary,
+                        borderColor: colors.border,
+                        borderRadius: theme.styles.borderRadius,
+                        borderWidth: theme.styles.borderWidth,
+                        shadowColor: colors.border,
+                        shadowOffset: theme.styles.shadowOffset,
+                        shadowOpacity: theme.styles.shadowOpacity,
+                        shadowRadius: theme.styles.shadowRadius,
+                      },
                     ]}
                     onPress={() => handleChoice(choice)}
                   >
                     <ThemedText
                       style={[
                         styles.choiceButtonText,
-                        isDark && styles.choiceButtonTextDark,
+                        { fontFamily: theme.fonts.button, color: colors.text },
                       ]}
                     >
                       {choice}
@@ -239,7 +310,10 @@ export default function StoryScreen() {
                   <ThemedText
                     style={[
                       styles.orText,
-                      isDark ? styles.orTextDark : styles.orTextLight,
+                      {
+                        fontFamily: theme.fonts.body,
+                        backgroundColor: colors.background,
+                      },
                     ]}
                   >
                     <>{"or"}</>
@@ -250,13 +324,25 @@ export default function StoryScreen() {
                   onPress={regenerate}
                   style={[
                     styles.regenButtonSmall,
-                    isDark && styles.regenButtonSmallDark,
+                    {
+                      backgroundColor: colors.accent,
+                      borderColor: colors.border,
+                      borderRadius: theme.styles.borderRadius,
+                      borderWidth: theme.styles.borderWidth,
+                      shadowColor: colors.border,
+                      shadowOffset: theme.styles.shadowOffset,
+                      shadowOpacity: theme.styles.shadowOpacity,
+                      shadowRadius: theme.styles.shadowRadius,
+                    },
                   ]}
                 >
                   <ThemedText
                     style={[
                       styles.regenButtonSmallText,
-                      isDark && styles.regenButtonSmallTextDark,
+                      {
+                        fontFamily: theme.fonts.button,
+                        color: isDark ? "#000" : "#000",
+                      },
                     ]}
                   >
                     Regenerate Story
@@ -301,13 +387,9 @@ const styles = StyleSheet.create({
   storyText: {
     fontSize: 14,
     textAlign: "center",
-    borderRadius: 0,
     padding: 16,
     marginBottom: 0,
-    fontFamily: "PressStart2P",
     lineHeight: 22,
-    borderWidth: 4,
-    borderColor: "#000",
   },
   storyTextLight: {
     backgroundColor: "#FFE66D",
@@ -320,12 +402,11 @@ const styles = StyleSheet.create({
     borderColor: "#F5F3F4",
   },
   choiceLabel: {
-    color: "#888",
     fontStyle: "normal",
     marginBottom: 8,
     textAlign: "center",
-    fontFamily: "PressStart2P",
     fontSize: 10,
+    opacity: 0.7,
   },
   choiceLabelDark: {
     color: "#bbb",
@@ -377,12 +458,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   gradientBarText: {
-    color: "#111",
     fontWeight: "normal",
     fontSize: 14,
     textAlign: "center",
     letterSpacing: 0.2,
-    fontFamily: "PressStart2P",
   },
   gradientBarTextDark: {
     color: "#111", // keep black for contrast on gradient
@@ -405,20 +484,12 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   choiceButton: {
-    backgroundColor: "#55EFC4",
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 0,
     marginVertical: 6,
     alignItems: "center",
     width: "98%",
     alignSelf: "center",
-    borderWidth: 4,
-    borderColor: "#000",
-    shadowColor: "#000",
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
     elevation: 0,
   },
   choiceButtonDark: {
@@ -426,11 +497,9 @@ const styles = StyleSheet.create({
     borderColor: "#F5F3F4",
   },
   choiceButtonText: {
-    color: "#2D3436",
     fontWeight: "normal",
     fontSize: 11,
     textAlign: "center",
-    fontFamily: "PressStart2P",
     lineHeight: 16,
   },
   choiceButtonTextDark: {
@@ -453,7 +522,6 @@ const styles = StyleSheet.create({
     transform: [{ translateX: -20 }],
     top: "50%",
     marginTop: -13,
-    fontFamily: "PressStart2P",
     fontSize: 10,
   },
   orTextLight: {
@@ -473,31 +541,21 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   regenButtonSmall: {
-    backgroundColor: "#FD79A8",
     paddingVertical: 10,
     paddingHorizontal: 20,
-    borderRadius: 0,
     alignItems: "center",
     alignSelf: "center",
     marginTop: 12,
     marginBottom: 8,
     minWidth: 180,
-    borderWidth: 4,
-    borderColor: "#000",
-    shadowColor: "#000",
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
   },
   regenButtonSmallDark: {
     backgroundColor: "#E84393",
     borderColor: "#F5F3F4",
   },
   regenButtonSmallText: {
-    color: "#2D3436",
     fontWeight: "normal",
     fontSize: 10,
-    fontFamily: "PressStart2P",
   },
   regenButtonSmallTextDark: {
     color: "#fff",
@@ -506,13 +564,10 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingVertical: 16,
     paddingHorizontal: 0,
-    borderRadius: 0,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 16,
     marginBottom: 20,
-    borderWidth: 4,
-    borderColor: "#000",
   },
   orDividerContainerInline: {
     alignItems: "center",
@@ -531,24 +586,15 @@ const styles = StyleSheet.create({
   storyImage: {
     width: "100%",
     height: 200,
-    borderRadius: 0,
     marginBottom: 8,
     backgroundColor: "#222",
-    borderWidth: 4,
-    borderColor: "#000",
   },
   imageErrorButton: {
     marginVertical: 8,
     padding: 10,
-    backgroundColor: "#E17055",
-    borderRadius: 0,
-    borderWidth: 4,
-    borderColor: "#000",
   },
   imageErrorText: {
-    color: "#fff",
     fontSize: 10,
     textAlign: "center",
-    fontFamily: "PressStart2P",
   },
 });

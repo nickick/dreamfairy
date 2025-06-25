@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/contexts/ThemeContext";
-import { storyThemeMap } from "@/constants/Themes";
+import { storyThemeMap, retroFutureTheme, enchantedForestTheme } from "@/constants/Themes";
 
 const STORY_SEEDS = [
   "A magical forest adventure",
@@ -56,36 +56,41 @@ export default function HomeScreen() {
           style={{ width: "100%" }}
           data={STORY_SEEDS}
           keyExtractor={(item) => item}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              style={[
-                styles.seedCard,
-                {
-                  backgroundColor: selectedSeed === item ? colors.secondary : colors.primary,
-                  borderRadius: theme.styles.borderRadius,
-                  borderWidth: theme.styles.borderWidth,
-                  borderColor: colors.border,
-                  shadowColor: colors.border,
-                  shadowOffset: theme.styles.shadowOffset,
-                  shadowOpacity: theme.styles.shadowOpacity,
-                  shadowRadius: theme.styles.shadowRadius,
-                },
-                false,
-              ]}
-              onPress={() => setSelectedSeed(item)}
-            >
-              <ThemedText type="defaultSemiBold" style={[styles.seedCardText, { fontFamily: theme.fonts.button }]}>
-                {item}
-              </ThemedText>
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => {
+            const seedTheme = storyThemeMap[item] === 'enchantedForest' ? enchantedForestTheme : retroFutureTheme;
+            const seedColors = isDark ? seedTheme.colors.dark : seedTheme.colors.light;
+            
+            return (
+              <TouchableOpacity
+                style={[
+                  styles.seedCard,
+                  {
+                    backgroundColor: selectedSeed === item ? seedColors.secondary : seedColors.primary,
+                    borderRadius: seedTheme.styles.borderRadius,
+                    borderWidth: seedTheme.styles.borderWidth,
+                    borderColor: seedColors.border,
+                    shadowColor: seedColors.border,
+                    shadowOffset: seedTheme.styles.shadowOffset,
+                    shadowOpacity: seedTheme.styles.shadowOpacity,
+                    shadowRadius: seedTheme.styles.shadowRadius,
+                  },
+                  false,
+                ]}
+                onPress={() => setSelectedSeed(item)}
+              >
+                <ThemedText type="defaultSemiBold" style={[styles.seedCardText, { fontFamily: seedTheme.fonts.button, color: seedColors.text }]}>
+                  {item}
+                </ThemedText>
+              </TouchableOpacity>
+            );
+          }}
           contentContainerStyle={styles.seedList}
         />
         <TouchableOpacity
           style={[
             styles.startButton,
             {
-              backgroundColor: !selectedSeed ? colors.icon : colors.accent,
+              backgroundColor: !selectedSeed ? colors.secondary : colors.accent,
               borderRadius: theme.styles.borderRadius,
               borderWidth: theme.styles.borderWidth,
               borderColor: colors.border,
@@ -179,7 +184,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   seedCardText: {
-    color: "#2D3436",
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center",
