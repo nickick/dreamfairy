@@ -1,9 +1,11 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { NarrationControls } from "@/components/NarrationControls";
 import { storyThemeMap } from "@/constants/Themes";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useGenerateImage } from "@/hooks/useGenerateImage";
 import { useGenerateStory } from "@/hooks/useGenerateStory";
+import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -36,8 +38,15 @@ const StoryNode = React.forwardRef<
     colors: any;
     theme: any;
     onLayout?: (e: LayoutChangeEvent) => void;
+    ttsLoading: boolean;
+    isPlaying: boolean;
+    progress: number;
+    ttsError: string | null;
+    onSpeak: () => void;
+    onPause: () => void;
+    onStop: () => void;
   }
->(({ story, choice, isDark, colors, theme, onLayout }, _ref) => {
+>(({ story, choice, isDark, colors, theme, onLayout, ttsLoading, isPlaying, progress, ttsError, onSpeak, onPause, onStop }, _ref) => {
   const {
     imageUrl,
     loading: imageLoading,
@@ -132,6 +141,15 @@ const StoryNode = React.forwardRef<
       >
         {story}
       </ThemedText>
+      <NarrationControls
+        isLoading={ttsLoading}
+        isPlaying={isPlaying}
+        progress={progress}
+        onPlay={onSpeak}
+        onPause={onPause}
+        onStop={onStop}
+        error={ttsError}
+      />
     </View>
   );
 });
@@ -153,6 +171,7 @@ export default function StoryScreen() {
   const { theme, isDark, setThemeName } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const latestY = useRef<number | null>(null);
+  const { speak, pause, resume, stop, isLoading: ttsLoading, isPlaying, progress, error: ttsError } = useTextToSpeech();
 
   // Set theme based on story seed
   useEffect(() => {
@@ -165,6 +184,11 @@ export default function StoryScreen() {
   useEffect(() => {
     if (story && steps.length === 0 && !loading && !error) {
       setSteps([{ story, choice: null }]);
+      
+      // Auto-narrate first story
+      if (!ttsLoading && !isPlaying) {
+        speak(story, 'narrator');
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story, loading, error]);
@@ -182,6 +206,11 @@ export default function StoryScreen() {
         ...prev,
         { story, choice: history[history.length - 1] },
       ]);
+      
+      // Auto-narrate new story content
+      if (!ttsLoading && !isPlaying) {
+        speak(story, 'narrator');
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [story, loading, error]);
@@ -233,6 +262,13 @@ export default function StoryScreen() {
                 ? (e) => (latestY.current = e.nativeEvent.layout.y)
                 : undefined
             }
+            ttsLoading={ttsLoading}
+            isPlaying={isPlaying}
+            progress={progress}
+            ttsError={ttsError}
+            onSpeak={() => speak(step.story, 'narrator')}
+            onPause={pause}
+            onStop={stop}
           />
         ))}
         {/* Choices and divider below the latest narrative node */}
