@@ -60,10 +60,10 @@ const StoryNode = React.forwardRef<
 
   useEffect(() => {
     // Only generate image if we don't have an existing one
-    if (story && !existingImageUrl) {
+    if (story && !existingImageUrl && !imageUrl && !imageLoading) {
       regenerateImage();
     }
-  }, [story, regenerateImage, existingImageUrl]);
+  }, [story, existingImageUrl]); // Remove regenerateImage from deps to avoid infinite loop
 
   // Save image URL when generated
   useEffect(() => {
@@ -224,7 +224,7 @@ export default function StoryScreen() {
   const { theme, isDark, setThemeName } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const latestY = useRef<number | null>(null);
-  const { speak, pause, resume, stop, isLoading: ttsLoading, isPlaying, progress, error: ttsError } = useTextToSpeech();
+  const { speak, pause, resume, stop, isLoading: ttsLoading, isPlaying, progress, error: ttsError, volume, setVolume, getLastAudioUrl } = useTextToSpeech();
   const { 
     createStory, 
     saveStoryNode, 
@@ -281,6 +281,21 @@ export default function StoryScreen() {
           setIsExistingStoryLoaded(true);
           // Allow generation for new choices after loading
           setSkipInitialGeneration(false);
+          
+          // Set the latest story node as the current narration
+          if (loadedSteps.length > 0) {
+            setCurrentNarrationIndex(loadedSteps.length - 1);
+            
+            // Scroll to the latest node after a brief delay to ensure layout is complete
+            setTimeout(() => {
+              if (scrollViewRef.current && latestY.current !== null) {
+                scrollViewRef.current.scrollTo({
+                  y: latestY.current - 24,
+                  animated: true,
+                });
+              }
+            }, 300);
+          }
         }
       }
     };
@@ -414,14 +429,55 @@ export default function StoryScreen() {
     setHistory((prev) => [...prev, choice]);
   };
 
-  const handleNarrationPlay = () => {
+  const handleNarrationPlay = async () => {
     if (currentNarrationIndex !== null && steps[currentNarrationIndex]) {
-      speak(steps[currentNarrationIndex].story, 'narrator');
+      // Check if we have an existing narration URL for this node
+      const existingNarrationUrl = existingNodeData.get(currentNarrationIndex)?.narrationUrl;
+      await speak(steps[currentNarrationIndex].story, 'narrator', existingNarrationUrl);
+      
+      // If we generated a new narration, save it to the database
+      if (!existingNarrationUrl) {
+        const newAudioUrl = getLastAudioUrl();
+        if (newAudioUrl && currentStoryId && nodeIds[currentNarrationIndex]) {
+          const { supabase } = await import('@/lib/supabase');
+          await supabase
+            .from('story_nodes')
+            .update({ narration_url: newAudioUrl })
+            .eq('id', nodeIds[currentNarrationIndex]);
+          
+          // Update local data
+          const currentData = existingNodeData.get(currentNarrationIndex) || {};
+          existingNodeData.set(currentNarrationIndex, {
+            ...currentData,
+            narrationUrl: newAudioUrl
+          });
+        }
+      }
     } else if (steps.length > 0) {
       // If no current narration, play the latest story
       const latestIndex = steps.length - 1;
-      speak(steps[latestIndex].story, 'narrator');
+      const existingNarrationUrl = existingNodeData.get(latestIndex)?.narrationUrl;
+      await speak(steps[latestIndex].story, 'narrator', existingNarrationUrl);
       setCurrentNarrationIndex(latestIndex);
+      
+      // Save if new
+      if (!existingNarrationUrl) {
+        const newAudioUrl = getLastAudioUrl();
+        if (newAudioUrl && currentStoryId && nodeIds[latestIndex]) {
+          const { supabase } = await import('@/lib/supabase');
+          await supabase
+            .from('story_nodes')
+            .update({ narration_url: newAudioUrl })
+            .eq('id', nodeIds[latestIndex]);
+          
+          // Update local data
+          const currentData = existingNodeData.get(latestIndex) || {};
+          existingNodeData.set(latestIndex, {
+            ...currentData,
+            narrationUrl: newAudioUrl
+          });
+        }
+      }
     }
   };
 
@@ -469,9 +525,29 @@ export default function StoryScreen() {
                 : undefined
             }
             isCurrentNarration={currentNarrationIndex === idx}
-            onSelectNarration={() => {
-              speak(step.story, 'narrator');
+            onSelectNarration={async () => {
               setCurrentNarrationIndex(idx);
+              const existingNarrationUrl = existingNodeData.get(idx)?.narrationUrl;
+              await speak(step.story, 'narrator', existingNarrationUrl);
+              
+              // Save if new
+              if (!existingNarrationUrl) {
+                const newAudioUrl = getLastAudioUrl();
+                if (newAudioUrl && currentStoryId && nodeIds[idx]) {
+                  const { supabase } = await import('@/lib/supabase');
+                  await supabase
+                    .from('story_nodes')
+                    .update({ narration_url: newAudioUrl })
+                    .eq('id', nodeIds[idx]);
+                  
+                  // Update local data
+                  const currentData = existingNodeData.get(idx) || {};
+                  existingNodeData.set(idx, {
+                    ...currentData,
+                    narrationUrl: newAudioUrl
+                  });
+                }
+              }
             }}
             nodeId={nodeIds[idx]}
             storyId={currentStoryId || undefined}

@@ -1,6 +1,6 @@
-import { GETIMG_API_KEY } from "@env";
 import { useCallback, useState } from "react";
 
+const GETIMG_API_KEY = process.env.EXPO_PUBLIC_GETIMG_API_KEY || '';
 const GETIMG_API_URL = "https://api.getimg.ai/v1/flux-schnell/text-to-image";
 
 export function useGenerateImage(prompt: string | undefined) {
@@ -10,6 +10,13 @@ export function useGenerateImage(prompt: string | undefined) {
 
   const generate = useCallback(async () => {
     if (!prompt) return;
+    
+    if (!GETIMG_API_KEY) {
+      console.error('GetImg API key not configured');
+      setError('Image generation API key not configured');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     setImageUrl(null);

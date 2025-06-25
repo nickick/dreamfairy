@@ -9,8 +9,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Story, useStoryPersistence } from "@/hooks/useStoryPersistence";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -35,6 +35,7 @@ type SectionItem =
   | { type: "savedStoriesTitle"; key: string }
   | { type: "loading"; key: string }
   | { type: "savedStory"; key: string; data: Story }
+  | { type: "noStories"; key: string }
   | { type: "newAdventureTitle"; key: string }
   | { type: "seed"; key: string; data: string }
   | { type: "startButton"; key: string };
@@ -57,40 +58,40 @@ export default function HomeScreen() {
     }
   }, [selectedSeed, setThemeName]);
 
-  // Load saved stories
-  useEffect(() => {
-    let mounted = true;
-
-    const loadStories = async () => {
-      if (!mounted || !user) return;
-
-      try {
-        setStoriesLoading(true);
-        const stories = await getUserStories();
-        if (mounted) {
-          setSavedStories(stories);
-          setStoriesLoading(false);
-        }
-      } catch (error) {
-        console.error("Error loading stories:", error);
-        if (mounted) {
-          setSavedStories([]);
-          setStoriesLoading(false);
-        }
-      }
-    };
-
-    if (user) {
-      loadStories();
-    } else {
+  // Load stories function
+  const loadStories = useCallback(async () => {
+    if (!user) {
       setStoriesLoading(false);
       setSavedStories([]);
+      return;
     }
 
-    return () => {
-      mounted = false;
-    };
+    try {
+      setStoriesLoading(true);
+      console.log('Loading stories for user:', user.id);
+      const stories = await getUserStories();
+      console.log('Loaded stories:', stories);
+      setSavedStories(stories);
+    } catch (error) {
+      console.error("Error loading stories:", error);
+      setSavedStories([]);
+    } finally {
+      setStoriesLoading(false);
+    }
   }, [getUserStories, user]);
+
+  // Load stories on mount and when user changes
+  useEffect(() => {
+    loadStories();
+  }, [loadStories]);
+
+  // Reload stories when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Home screen focused - reloading stories');
+      loadStories();
+    }, [loadStories])
+  );
 
   const handleStartStory = () => {
     if (selectedSeed) {
@@ -108,16 +109,17 @@ export default function HomeScreen() {
   // Header section
   sections.push({ type: "header", key: "header" });
 
-  // Saved stories section
-  if (savedStories.length > 0) {
-    sections.push({ type: "savedStoriesTitle", key: "savedStoriesTitle" });
-    if (storiesLoading) {
-      sections.push({ type: "loading", key: "loading" });
-    } else {
-      savedStories.forEach((story) => {
-        sections.push({ type: "savedStory", key: story.id, data: story });
-      });
-    }
+  // Saved stories section - show even if empty to help debug
+  sections.push({ type: "savedStoriesTitle", key: "savedStoriesTitle" });
+  if (storiesLoading) {
+    sections.push({ type: "loading", key: "loading" });
+  } else if (savedStories.length > 0) {
+    savedStories.forEach((story) => {
+      sections.push({ type: "savedStory", key: story.id, data: story });
+    });
+  } else if (user) {
+    // Show a message if no stories found
+    sections.push({ type: "noStories", key: "noStories" });
   }
 
   // New adventure section
@@ -161,6 +163,44 @@ export default function HomeScreen() {
             color={colors.text}
             style={styles.loader}
           />
+        );
+
+      case "noStories":
+        return (
+          <View style={styles.noStoriesContainer}>
+            <ThemedText
+              style={[
+                styles.noStoriesText,
+                { fontFamily: theme.fonts.body, color: colors.text, opacity: 0.6 },
+              ]}
+            >
+              No saved stories yet. Start a new adventure!
+            </ThemedText>
+            <TouchableOpacity
+              style={[
+                styles.refreshButton,
+                {
+                  backgroundColor: colors.secondary,
+                  borderColor: colors.border,
+                  borderRadius: theme.styles.borderRadius,
+                  borderWidth: theme.styles.borderWidth,
+                },
+              ]}
+              onPress={() => {
+                // Force reload stories
+                loadStories();
+              }}
+            >
+              <ThemedText
+                style={[
+                  styles.refreshButtonText,
+                  { fontFamily: theme.fonts.button, color: colors.text },
+                ]}
+              >
+                Refresh
+              </ThemedText>
+            </TouchableOpacity>
+          </View>
         );
 
       case "savedStory":
@@ -379,8 +419,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     minHeight: 56,
     justifyContent: "center",
-    width: "100%",
-    maxWidth: 400,
+    width: 350,
+    alignSelf: "center",
   },
   selectedSeedCard: {
     transform: [{ translateX: -2 }, { translateY: -2 }],
@@ -434,8 +474,8 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 12,
     marginHorizontal: 4,
-    width: "100%",
-    maxWidth: 400,
+    width: 350,
+    alignSelf: "center",
   },
   storyCardContent: {
     flex: 1,
@@ -449,5 +489,22 @@ const styles = StyleSheet.create({
   },
   loader: {
     marginVertical: 20,
+  },
+  noStoriesContainer: {
+    alignItems: "center",
+    marginVertical: 20,
+    paddingHorizontal: 20,
+  },
+  noStoriesText: {
+    fontSize: 14,
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  refreshButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  refreshButtonText: {
+    fontSize: 14,
   },
 });

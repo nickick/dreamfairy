@@ -114,7 +114,7 @@ export function NarrationControls({
             </View>
           ) : (
             <>
-              {currentStoryText && (
+              {currentStoryText ? (
                 <ThemedText 
                   style={[
                     styles.textPreview, 
@@ -128,23 +128,27 @@ export function NarrationControls({
                 >
                   {currentStoryText.slice(0, 60)}...
                 </ThemedText>
+              ) : (
+                <View style={{ flex: 1 }} />
               )}
               <TouchableOpacity
                 onPress={onPlay}
                 style={[
                   styles.button,
                   {
-                    backgroundColor: colors.accent,
+                    backgroundColor: currentStoryText ? colors.accent : colors.secondary,
                     borderColor: colors.border,
                     borderWidth: theme.styles.borderWidth,
                     borderRadius: theme.styles.borderRadius,
+                    opacity: currentStoryText ? 1 : 0.5,
                   }
                 ]}
+                disabled={!currentStoryText}
               >
                 <Ionicons 
                   name="play" 
                   size={16} 
-                  color={isDark ? '#000' : '#000'} 
+                  color={currentStoryText ? (isDark ? '#000' : '#000') : colors.text} 
                 />
               </TouchableOpacity>
             </>
@@ -196,7 +200,9 @@ const styles = StyleSheet.create({
   standaloneControls: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
+    width: '100%',
   },
   textPreview: {
     fontSize: 12,

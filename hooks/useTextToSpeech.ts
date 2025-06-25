@@ -6,11 +6,14 @@ interface UseTextToSpeechReturn {
   isLoading: boolean;
   isPlaying: boolean;
   error: string | null;
-  speak: (text: string, voiceType?: 'narrator' | 'child' | 'fairy') => Promise<void>;
+  speak: (text: string, voiceType?: 'narrator' | 'child' | 'fairy', existingAudioUrl?: string) => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   stop: () => Promise<void>;
   progress: number; // 0-1
+  volume: number; // 0-1
+  setVolume: (volume: number) => Promise<void>;
+  getLastAudioUrl: () => string | null;
 }
 
 // Cache for storing generated audio data
@@ -27,18 +30,42 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [volume, setVolumeState] = useState(1.0);
   
   const soundRef = useRef<Audio.Sound | null>(null);
   const currentTextRef = useRef<string>('');
   const currentVoiceRef = useRef<string>('');
+  const lastAudioUrlRef = useRef<string | null>(null);
+  
+  const setVolume = async (newVolume: number) => {
+    const clampedVolume = Math.max(0, Math.min(1, newVolume));
+    setVolumeState(clampedVolume);
+    if (soundRef.current) {
+      await soundRef.current.setVolumeAsync(clampedVolume);
+    }
+  };
+  
+  const getLastAudioUrl = () => lastAudioUrlRef.current;
 
   useEffect(() => {
-    // Configure audio session
-    Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: false,
-      shouldDuckAndroid: true,
-    });
+    // Configure audio session for optimal playback
+    const setupAudio = async () => {
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: true,
+        shouldDuckAndroid: false,
+        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
+        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
+        playThroughEarpieceAndroid: false,
+        // Force audio to play through speaker
+        allowsRecordingIOS: false,
+        // iOS specific - ensure we're using the speaker
+        // @ts-ignore - this property exists but might not be in types
+        defaultToSpeaker: true,
+      });
+    };
+    
+    setupAudio();
 
     // Cleanup
     return () => {
@@ -58,14 +85,10 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
     }
   };
 
-  const speak = async (text: string, voiceType: 'narrator' | 'child' | 'fairy' = 'narrator') => {
+  const speak = async (text: string, voiceType: 'narrator' | 'child' | 'fairy' = 'narrator', existingAudioUrl?: string) => {
     try {
       setIsLoading(true);
       setError(null);
-
-      if (!ELEVENLABS_CONFIG.API_KEY) {
-        throw new Error('ElevenLabs API key not configured');
-      }
 
       // Stop any existing playback
       await stop();
@@ -74,20 +97,30 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
       currentTextRef.current = text;
       currentVoiceRef.current = voiceType;
 
-      // Create cache key
-      const cacheKey = `${text}_${voiceType}`;
-      
-      // Clean up old cache entries
-      cleanupCache();
-
-      // Check cache first
-      const cachedEntry = audioCache.get(cacheKey);
       let audioUri: string;
 
-      if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_EXPIRY_MS) {
-        // Use cached audio
-        audioUri = cachedEntry.audioUri;
+      // If we have an existing audio URL, use it directly
+      if (existingAudioUrl) {
+        audioUri = existingAudioUrl;
+        lastAudioUrlRef.current = existingAudioUrl;
       } else {
+        if (!ELEVENLABS_CONFIG.API_KEY) {
+          throw new Error('ElevenLabs API key not configured');
+        }
+
+        // Create cache key
+        const cacheKey = `${text}_${voiceType}`;
+        
+        // Clean up old cache entries
+        cleanupCache();
+
+        // Check cache first
+        const cachedEntry = audioCache.get(cacheKey);
+
+        if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_EXPIRY_MS) {
+          // Use cached audio
+          audioUri = cachedEntry.audioUri;
+        } else {
         // Generate new audio
         const response = await fetch(
           `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_CONFIG.VOICES[voiceType]}/stream`,
@@ -121,20 +154,31 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
         );
         audioUri = `data:audio/mpeg;base64,${base64}`;
 
-        // Cache the audio
-        audioCache.set(cacheKey, {
-          audioUri,
-          timestamp: Date.now(),
-        });
+          // Cache the audio
+          audioCache.set(cacheKey, {
+            audioUri,
+            timestamp: Date.now(),
+          });
+          
+          // Store the generated URL
+          lastAudioUrlRef.current = audioUri;
+        }
       }
 
-      // Create and load sound
+      // Create and load sound with current volume
       const { sound } = await Audio.Sound.createAsync(
         { uri: audioUri },
-        { shouldPlay: true },
+        { 
+          shouldPlay: true,
+          volume: volume,
+          isMuted: false,
+        },
         onPlaybackStatusUpdate
       );
 
+      // Ensure volume is set
+      await sound.setVolumeAsync(volume);
+      
       soundRef.current = sound;
       setIsPlaying(true);
     } catch (err) {
@@ -193,5 +237,8 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
     resume,
     stop,
     progress,
+    volume,
+    setVolume,
+    getLastAudioUrl,
   };
 }
