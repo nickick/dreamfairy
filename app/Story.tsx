@@ -1,6 +1,7 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { NarrationNavbar } from "@/components/NarrationNavbar";
+import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { storyThemeMap } from "@/constants/Themes";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useGenerateImage } from "@/hooks/useGenerateImage";
@@ -387,6 +388,21 @@ export default function StoryScreen() {
                     </ThemedText>
                   </TouchableOpacity>
                 ))}
+                {/* Voice recorder section */}
+                <View style={styles.voiceSection}>
+                  <ThemedText
+                    style={[
+                      styles.voiceSectionText,
+                      { fontFamily: theme.fonts.body, color: colors.text }
+                    ]}
+                  >
+                    Or speak your own choice:
+                  </ThemedText>
+                  <VoiceRecorder
+                    onTranscript={(text) => handleChoice(text)}
+                    disabled={loading}
+                  />
+                </View>
                 {/* Divider with 'or' and regenerate button */}
                 <View style={styles.orDividerContainerInline}>
                   <ThemedText
@@ -687,5 +703,15 @@ const styles = StyleSheet.create({
   },
   selectNarrationText: {
     fontSize: 12,
+  },
+  voiceSection: {
+    alignItems: "center",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  voiceSectionText: {
+    fontSize: 12,
+    marginBottom: 8,
+    textAlign: "center",
   },
 });
