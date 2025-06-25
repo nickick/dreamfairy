@@ -47,12 +47,13 @@ export default function HomeScreen() {
         style={[styles.container, { paddingBottom: insets.bottom + 24 }]}
       >
         <ThemedText type="title" style={[styles.header, { fontFamily: theme.fonts.title }]}>
-          Welcome to Dream Fairy!
+          Welcome to{'\n'}Dream Fairy!
         </ThemedText>
         <ThemedText type="subtitle" style={[styles.subtitle, { fontFamily: theme.fonts.title }]}>
-          Choose a story seed to begin your adventure:
+          Choose a story seed to begin{'\n'}your adventure:
         </ThemedText>
         <FlatList
+          style={{ width: "100%" }}
           data={STORY_SEEDS}
           keyExtractor={(item) => item}
           renderItem={({ item }) => (
@@ -69,7 +70,7 @@ export default function HomeScreen() {
                   shadowOpacity: theme.styles.shadowOpacity,
                   shadowRadius: theme.styles.shadowRadius,
                 },
-                selectedSeed === item && styles.selectedSeedCard,
+                false,
               ]}
               onPress={() => setSelectedSeed(item)}
             >
@@ -134,44 +135,61 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 12,
     textAlign: "center",
+    fontSize: 24,
+    lineHeight: 32,
   },
   subtitle: {
     marginTop: 32,
     marginBottom: 16,
     textAlign: "center",
+    fontSize: 16,
+    lineHeight: 24,
   },
   seedList: {
     width: "100%",
     marginBottom: 24,
+    paddingHorizontal: 4,
   },
   seedCard: {
     padding: 16,
     marginBottom: 12,
+    marginHorizontal: 4,
     alignItems: "center",
+    minHeight: 56,
+    justifyContent: "center",
+    width: "auto",
   },
   selectedSeedCard: {
     transform: [{ translateX: -2 }, { translateY: -2 }],
+    marginTop: 2,
+    marginLeft: 2,
+    marginRight: 2,
+    marginBottom: 2,
   },
   startButton: {
     paddingVertical: 16,
     paddingHorizontal: 40,
     alignItems: "center",
     marginBottom: 24,
+    minHeight: 56,
+    justifyContent: "center",
+    minWidth: 200,
   },
   disabledButton: {
     opacity: 0.6,
   },
   seedCardText: {
     color: "#2D3436",
-    fontSize: 12,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
     textAlign: "center",
   },
   startButtonText: {
-    fontSize: 14,
+    fontSize: 16,
+    lineHeight: 22,
   },
   startButtonTextEnabled: {
-    color: "#F5F3F4",
+    color: "#000",
   },
   startButtonTextDisabled: {
     color: "#636E72",

@@ -113,10 +113,10 @@ export const enchantedForestTheme: Theme = {
   },
   styles: {
     borderRadius: 16,
-    borderWidth: 2,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
+    borderWidth: 4,
+    shadowOffset: { width: 4, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 0,
     buttonShadow: true,
   },
 };
