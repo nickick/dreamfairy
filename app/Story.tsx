@@ -401,6 +401,7 @@ export default function StoryScreen() {
                   <VoiceRecorder
                     onTranscript={(text) => handleChoice(text)}
                     disabled={loading}
+                    storyContext={steps.length > 0 ? steps[steps.length - 1].story : ''}
                   />
                 </View>
                 {/* Divider with 'or' and regenerate button */}

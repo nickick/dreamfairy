@@ -8,9 +8,10 @@ import { useSpeechToText } from '@/hooks/useSpeechToText';
 interface VoiceRecorderProps {
   onTranscript: (text: string) => void;
   disabled?: boolean;
+  storyContext?: string;
 }
 
-export function VoiceRecorder({ onTranscript, disabled }: VoiceRecorderProps) {
+export function VoiceRecorder({ onTranscript, disabled, storyContext }: VoiceRecorderProps) {
   const { theme, isDark } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const { 
@@ -32,7 +33,7 @@ export function VoiceRecorder({ onTranscript, disabled }: VoiceRecorderProps) {
 
   const handlePress = () => {
     if (isRecording) {
-      stopRecording();
+      stopRecording(storyContext);
     } else {
       startRecording();
     }
