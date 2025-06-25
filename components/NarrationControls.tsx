@@ -12,6 +12,7 @@ interface NarrationControlsProps {
   onPause: () => void;
   onStop: () => void;
   error?: string | null;
+  currentStoryText?: string;
 }
 
 export function NarrationControls({
@@ -22,83 +23,15 @@ export function NarrationControls({
   onPause,
   onStop,
   error,
+  currentStoryText,
 }: NarrationControlsProps) {
   const { theme, isDark } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
 
   return (
     <View style={styles.container}>
-      <View 
-        style={[
-          styles.controlsWrapper,
-          {
-            backgroundColor: colors.cardBackground,
-            borderColor: colors.border,
-            borderWidth: theme.styles.borderWidth,
-            borderRadius: theme.styles.borderRadius,
-            shadowColor: colors.border,
-            shadowOffset: theme.styles.shadowOffset,
-            shadowOpacity: theme.styles.shadowOpacity,
-            shadowRadius: theme.styles.shadowRadius,
-          }
-        ]}
-      >
-        {isLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="small" color={colors.text} />
-            <ThemedText style={[styles.loadingText, { fontFamily: theme.fonts.body, color: colors.text }]}>
-              Generating narration...
-            </ThemedText>
-          </View>
-        ) : (
-          <>
-            <TouchableOpacity
-              onPress={isPlaying ? onPause : onPlay}
-              style={[
-                styles.button,
-                {
-                  backgroundColor: colors.accent,
-                  borderColor: colors.border,
-                  borderWidth: theme.styles.borderWidth,
-                  borderRadius: theme.styles.borderRadius,
-                }
-              ]}
-            >
-              <Ionicons 
-                name={isPlaying ? "pause" : "play"} 
-                size={24} 
-                color={isDark ? '#000' : '#000'} 
-              />
-            </TouchableOpacity>
-            
-            {isPlaying && (
-              <TouchableOpacity
-                onPress={onStop}
-                style={[
-                  styles.button,
-                  {
-                    backgroundColor: colors.secondary,
-                    borderColor: colors.border,
-                    borderWidth: theme.styles.borderWidth,
-                    borderRadius: theme.styles.borderRadius,
-                  }
-                ]}
-              >
-                <Ionicons name="stop" size={24} color={colors.text} />
-              </TouchableOpacity>
-            )}
-          </>
-        )}
-        
-        {error && (
-          <ThemedText style={[styles.errorText, { fontFamily: theme.fonts.body, color: colors.accent }]}>
-            {error}
-          </ThemedText>
-        )}
-      </View>
-      
       {(isPlaying || progress > 0) && (
-        <View style={styles.progressContainer}>
+        <View style={styles.progressWrapper}>
           <View 
             style={[
               styles.progressBar,
@@ -119,7 +52,110 @@ export function NarrationControls({
               ]}
             />
           </View>
+          <View style={styles.controlsWrapper}>
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color={colors.text} />
+                <ThemedText style={[styles.loadingText, { fontFamily: theme.fonts.body, color: colors.text }]}>
+                  Loading...
+                </ThemedText>
+              </View>
+            ) : (
+              <View style={styles.buttonsContainer}>
+                <TouchableOpacity
+                  onPress={isPlaying ? onPause : onPlay}
+                  style={[
+                    styles.button,
+                    {
+                      backgroundColor: colors.accent,
+                      borderColor: colors.border,
+                      borderWidth: theme.styles.borderWidth,
+                      borderRadius: theme.styles.borderRadius,
+                    }
+                  ]}
+                >
+                  <Ionicons 
+                    name={isPlaying ? "pause" : "play"} 
+                    size={16} 
+                    color={isDark ? '#000' : '#000'} 
+                  />
+                </TouchableOpacity>
+                
+                {isPlaying && (
+                  <TouchableOpacity
+                    onPress={onStop}
+                    style={[
+                      styles.button,
+                      {
+                        backgroundColor: colors.secondary,
+                        borderColor: colors.border,
+                        borderWidth: theme.styles.borderWidth,
+                        borderRadius: theme.styles.borderRadius,
+                      }
+                    ]}
+                  >
+                    <Ionicons name="stop" size={16} color={colors.text} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
         </View>
+      )}
+      
+      {!isPlaying && progress === 0 && (
+        <View style={styles.standaloneControls}>
+          {isLoading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color={colors.text} />
+              <ThemedText style={[styles.loadingText, { fontFamily: theme.fonts.body, color: colors.text }]}>
+                Generating narration...
+              </ThemedText>
+            </View>
+          ) : (
+            <>
+              {currentStoryText && (
+                <ThemedText 
+                  style={[
+                    styles.textPreview, 
+                    { 
+                      fontFamily: theme.fonts.body, 
+                      color: colors.text,
+                      opacity: 0.7 
+                    }
+                  ]}
+                  numberOfLines={1}
+                >
+                  {currentStoryText.slice(0, 60)}...
+                </ThemedText>
+              )}
+              <TouchableOpacity
+                onPress={onPlay}
+                style={[
+                  styles.button,
+                  {
+                    backgroundColor: colors.accent,
+                    borderColor: colors.border,
+                    borderWidth: theme.styles.borderWidth,
+                    borderRadius: theme.styles.borderRadius,
+                  }
+                ]}
+              >
+                <Ionicons 
+                  name="play" 
+                  size={16} 
+                  color={isDark ? '#000' : '#000'} 
+                />
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      )}
+      
+      {error && (
+        <ThemedText style={[styles.errorText, { fontFamily: theme.fonts.body, color: colors.accent }]}>
+          {error}
+        </ThemedText>
       )}
     </View>
   );
@@ -127,44 +163,56 @@ export function NarrationControls({
 
 const styles = StyleSheet.create({
   container: {
-    marginVertical: 12,
-    alignItems: 'center',
-  },
-  controlsWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 12,
-    gap: 12,
-  },
-  button: {
-    width: 48,
-    height: 48,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  loadingText: {
-    fontSize: 12,
-  },
-  errorText: {
-    fontSize: 11,
-    marginLeft: 8,
-  },
-  progressContainer: {
     width: '100%',
-    marginTop: 8,
-    paddingHorizontal: 12,
+  },
+  progressWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    gap: 8,
   },
   progressBar: {
     height: 4,
-    width: '100%',
+    flex: 1,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
+  },
+  controlsWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  buttonsContainer: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  button: {
+    width: 32,
+    height: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  standaloneControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  textPreview: {
+    fontSize: 12,
+    flex: 1,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  loadingText: {
+    fontSize: 11,
+  },
+  errorText: {
+    fontSize: 10,
+    marginTop: 4,
+    textAlign: 'center',
   },
 });

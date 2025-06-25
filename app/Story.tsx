@@ -1,6 +1,6 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { NarrationControls } from "@/components/NarrationControls";
+import { NarrationNavbar } from "@/components/NarrationNavbar";
 import { storyThemeMap } from "@/constants/Themes";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useGenerateImage } from "@/hooks/useGenerateImage";
@@ -9,6 +9,7 @@ import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import {
   ActivityIndicator,
   Animated,
@@ -19,7 +20,9 @@ import {
   TouchableOpacity,
   View,
   useColorScheme,
+  Platform,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface StoryStep {
   story: string;
@@ -38,15 +41,10 @@ const StoryNode = React.forwardRef<
     colors: any;
     theme: any;
     onLayout?: (e: LayoutChangeEvent) => void;
-    ttsLoading: boolean;
-    isPlaying: boolean;
-    progress: number;
-    ttsError: string | null;
-    onSpeak: () => void;
-    onPause: () => void;
-    onStop: () => void;
+    isCurrentNarration: boolean;
+    onSelectNarration: () => void;
   }
->(({ story, choice, isDark, colors, theme, onLayout, ttsLoading, isPlaying, progress, ttsError, onSpeak, onPause, onStop }, _ref) => {
+>(({ story, choice, isDark, colors, theme, onLayout, isCurrentNarration, onSelectNarration }, _ref) => {
   const {
     imageUrl,
     loading: imageLoading,
@@ -141,15 +139,30 @@ const StoryNode = React.forwardRef<
       >
         {story}
       </ThemedText>
-      <NarrationControls
-        isLoading={ttsLoading}
-        isPlaying={isPlaying}
-        progress={progress}
-        onPlay={onSpeak}
-        onPause={onPause}
-        onStop={onStop}
-        error={ttsError}
-      />
+      <TouchableOpacity
+        onPress={onSelectNarration}
+        style={[
+          styles.selectNarrationButton,
+          {
+            backgroundColor: isCurrentNarration ? colors.accent : colors.secondary,
+            borderColor: colors.border,
+            borderWidth: theme.styles.borderWidth,
+            borderRadius: theme.styles.borderRadius,
+          }
+        ]}
+      >
+        <ThemedText
+          style={[
+            styles.selectNarrationText,
+            { 
+              fontFamily: theme.fonts.button, 
+              color: isCurrentNarration ? (isDark ? '#000' : '#000') : colors.text 
+            }
+          ]}
+        >
+          {isCurrentNarration ? 'Currently Playing' : 'Play This Part'}
+        </ThemedText>
+      </TouchableOpacity>
     </View>
   );
 });
@@ -158,6 +171,7 @@ export default function StoryScreen() {
   const { seed } = useLocalSearchParams();
   const [steps, setSteps] = useState<StoryStep[]>([]); // Each step: {story, choice}
   const [history, setHistory] = useState<string[]>([]); // Just the choices for the hook
+  const [currentNarrationIndex, setCurrentNarrationIndex] = useState<number | null>(null);
   const { story, choices, loading, error, regenerate } = useGenerateStory(
     typeof seed === "string" ? seed : undefined,
     history
@@ -172,6 +186,7 @@ export default function StoryScreen() {
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const latestY = useRef<number | null>(null);
   const { speak, pause, resume, stop, isLoading: ttsLoading, isPlaying, progress, error: ttsError } = useTextToSpeech();
+  const insets = useSafeAreaInsets();
 
   // Set theme based on story seed
   useEffect(() => {
@@ -185,9 +200,10 @@ export default function StoryScreen() {
     if (story && steps.length === 0 && !loading && !error) {
       setSteps([{ story, choice: null }]);
       
-      // Auto-narrate first story
+      // Auto-narrate first story and set current narration index
       if (!ttsLoading && !isPlaying) {
         speak(story, 'narrator');
+        setCurrentNarrationIndex(0);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -207,9 +223,10 @@ export default function StoryScreen() {
         { story, choice: history[history.length - 1] },
       ]);
       
-      // Auto-narrate new story content
+      // Auto-narrate new story content and update current narration index
       if (!ttsLoading && !isPlaying) {
         speak(story, 'narrator');
+        setCurrentNarrationIndex(steps.length);
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -239,13 +256,44 @@ export default function StoryScreen() {
     setHistory((prev) => [...prev, choice]);
   };
 
+  const handleNarrationPlay = () => {
+    if (currentNarrationIndex !== null && steps[currentNarrationIndex]) {
+      speak(steps[currentNarrationIndex].story, 'narrator');
+    } else if (steps.length > 0) {
+      // If no current narration, play the latest story
+      const latestIndex = steps.length - 1;
+      speak(steps[latestIndex].story, 'narrator');
+      setCurrentNarrationIndex(latestIndex);
+    }
+  };
+
+  // Calculate navbar height: controls height + padding (5+5) + border
+  const navbarHeight = 40 + 10 + theme.styles.borderWidth;
+
   return (
     <ThemedView
       style={[styles.outerContainer, { backgroundColor: colors.background }]}
     >
+      <NarrationNavbar
+        currentStoryText={currentNarrationIndex !== null && steps[currentNarrationIndex] ? steps[currentNarrationIndex].story : ''}
+        ttsLoading={ttsLoading}
+        isPlaying={isPlaying}
+        progress={progress}
+        ttsError={ttsError}
+        onSpeak={handleNarrationPlay}
+        onPause={pause}
+        onStop={stop}
+        showControls={steps.length > 0}
+      />
       <ScrollView
         ref={scrollViewRef}
-        contentContainerStyle={[styles.scrollContainer, { paddingBottom: 48 }]}
+        contentContainerStyle={[
+          styles.scrollContainer, 
+          { 
+            paddingBottom: 48,
+            paddingTop: navbarHeight 
+          }
+        ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Narrative nodes */}
@@ -262,13 +310,11 @@ export default function StoryScreen() {
                 ? (e) => (latestY.current = e.nativeEvent.layout.y)
                 : undefined
             }
-            ttsLoading={ttsLoading}
-            isPlaying={isPlaying}
-            progress={progress}
-            ttsError={ttsError}
-            onSpeak={() => speak(step.story, 'narrator')}
-            onPause={pause}
-            onStop={stop}
+            isCurrentNarration={currentNarrationIndex === idx}
+            onSelectNarration={() => {
+              speak(step.story, 'narrator');
+              setCurrentNarrationIndex(idx);
+            }}
           />
         ))}
         {/* Choices and divider below the latest narrative node */}
@@ -632,5 +678,14 @@ const styles = StyleSheet.create({
   imageErrorText: {
     fontSize: 10,
     textAlign: "center",
+  },
+  selectNarrationButton: {
+    marginTop: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignSelf: 'center',
+  },
+  selectNarrationText: {
+    fontSize: 12,
   },
 });

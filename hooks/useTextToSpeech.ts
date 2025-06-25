@@ -13,6 +13,15 @@ interface UseTextToSpeechReturn {
   progress: number; // 0-1
 }
 
+// Cache for storing generated audio data
+interface AudioCacheEntry {
+  audioUri: string;
+  timestamp: number;
+}
+
+const audioCache = new Map<string, AudioCacheEntry>();
+const CACHE_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
+
 export function useTextToSpeech(): UseTextToSpeechReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -20,6 +29,8 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
   const [progress, setProgress] = useState(0);
   
   const soundRef = useRef<Audio.Sound | null>(null);
+  const currentTextRef = useRef<string>('');
+  const currentVoiceRef = useRef<string>('');
 
   useEffect(() => {
     // Configure audio session
@@ -37,6 +48,16 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
     };
   }, []);
 
+  // Clean up expired cache entries
+  const cleanupCache = () => {
+    const now = Date.now();
+    for (const [key, entry] of audioCache.entries()) {
+      if (now - entry.timestamp > CACHE_EXPIRY_MS) {
+        audioCache.delete(key);
+      }
+    }
+  };
+
   const speak = async (text: string, voiceType: 'narrator' | 'child' | 'fairy' = 'narrator') => {
     try {
       setIsLoading(true);
@@ -49,38 +70,63 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
       // Stop any existing playback
       await stop();
 
-      // Make direct API call to ElevenLabs
-      const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_CONFIG.VOICES[voiceType]}/stream`,
-        {
-          method: 'POST',
-          headers: {
-            'xi-api-key': ELEVENLABS_CONFIG.API_KEY,
-            'Content-Type': 'application/json',
-            'Accept': 'audio/mpeg',
-          },
-          body: JSON.stringify({
-            text,
-            model_id: ELEVENLABS_CONFIG.MODEL_ID,
-            voice_settings: ELEVENLABS_CONFIG.VOICE_SETTINGS,
-          }),
+      // Store current text and voice for potential replay
+      currentTextRef.current = text;
+      currentVoiceRef.current = voiceType;
+
+      // Create cache key
+      const cacheKey = `${text}_${voiceType}`;
+      
+      // Clean up old cache entries
+      cleanupCache();
+
+      // Check cache first
+      const cachedEntry = audioCache.get(cacheKey);
+      let audioUri: string;
+
+      if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_EXPIRY_MS) {
+        // Use cached audio
+        audioUri = cachedEntry.audioUri;
+      } else {
+        // Generate new audio
+        const response = await fetch(
+          `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_CONFIG.VOICES[voiceType]}/stream`,
+          {
+            method: 'POST',
+            headers: {
+              'xi-api-key': ELEVENLABS_CONFIG.API_KEY,
+              'Content-Type': 'application/json',
+              'Accept': 'audio/mpeg',
+            },
+            body: JSON.stringify({
+              text,
+              model_id: ELEVENLABS_CONFIG.MODEL_ID,
+              voice_settings: ELEVENLABS_CONFIG.VOICE_SETTINGS,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.detail?.message || `API Error: ${response.status}`);
         }
-      );
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail?.message || `API Error: ${response.status}`);
+        // Convert response to base64
+        const arrayBuffer = await response.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer).reduce(
+            (data, byte) => data + String.fromCharCode(byte),
+            ''
+          )
+        );
+        audioUri = `data:audio/mpeg;base64,${base64}`;
+
+        // Cache the audio
+        audioCache.set(cacheKey, {
+          audioUri,
+          timestamp: Date.now(),
+        });
       }
-
-      // Convert response to base64
-      const arrayBuffer = await response.arrayBuffer();
-      const base64 = btoa(
-        new Uint8Array(arrayBuffer).reduce(
-          (data, byte) => data + String.fromCharCode(byte),
-          ''
-        )
-      );
-      const audioUri = `data:audio/mpeg;base64,${base64}`;
 
       // Create and load sound
       const { sound } = await Audio.Sound.createAsync(
@@ -122,6 +168,9 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
     if (soundRef.current) {
       await soundRef.current.playAsync();
       setIsPlaying(true);
+    } else if (currentTextRef.current) {
+      // If no sound is loaded but we have the text, replay it from cache
+      await speak(currentTextRef.current, currentVoiceRef.current as any);
     }
   };
 
