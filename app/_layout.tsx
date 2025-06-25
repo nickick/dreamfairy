@@ -1,11 +1,48 @@
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
+import { useEffect } from 'react';
 
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+
+function RootLayoutNav() {
+  const { user, loading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!loading) {
+      const inAuthGroup = segments[0] === 'Login';
+      
+      if (!user && !inAuthGroup) {
+        // Redirect to login if not authenticated
+        router.replace('/Login');
+      } else if (user && inAuthGroup) {
+        // Redirect to home if authenticated and on login page
+        router.replace('/(tabs)');
+      }
+    }
+  }, [user, loading, segments]);
+
+  return (
+    <Stack>
+      <Stack.Screen name="Login" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen 
+        name="Story" 
+        options={{ 
+          headerBackTitle: "Pick a new story",
+          headerBackTitleVisible: true,
+        }} 
+      />
+      <Stack.Screen name="+not-found" />
+    </Stack>
+  );
+}
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -24,21 +61,13 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <NavigationThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen 
-            name="Story" 
-            options={{ 
-              headerBackTitle: "Pick a new story",
-              headerBackTitleVisible: true,
-            }} 
-          />
-          <Stack.Screen name="+not-found" />
-        </Stack>
-        <StatusBar style="auto" />
-      </NavigationThemeProvider>
-    </ThemeProvider>
+    <AuthProvider>
+      <ThemeProvider>
+        <NavigationThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <RootLayoutNav />
+          <StatusBar style="auto" />
+        </NavigationThemeProvider>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
