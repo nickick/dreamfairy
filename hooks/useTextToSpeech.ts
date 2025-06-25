@@ -36,6 +36,7 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
   const currentTextRef = useRef<string>('');
   const currentVoiceRef = useRef<string>('');
   const lastAudioUrlRef = useRef<string | null>(null);
+  const isAudioConfigured = useRef(false);
   
   const setVolume = async (newVolume: number) => {
     const clampedVolume = Math.max(0, Math.min(1, newVolume));
@@ -50,19 +51,23 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
   useEffect(() => {
     // Configure audio session for optimal playback
     const setupAudio = async () => {
-      await Audio.setAudioModeAsync({
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        shouldDuckAndroid: false,
-        interruptionModeIOS: Audio.INTERRUPTION_MODE_IOS_DO_NOT_MIX,
-        interruptionModeAndroid: Audio.INTERRUPTION_MODE_ANDROID_DO_NOT_MIX,
-        playThroughEarpieceAndroid: false,
-        // Force audio to play through speaker
-        allowsRecordingIOS: false,
-        // iOS specific - ensure we're using the speaker
-        // @ts-ignore - this property exists but might not be in types
-        defaultToSpeaker: true,
-      });
+      try {
+        // First, ensure we have the proper category set
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: true,
+          shouldDuckAndroid: false,
+          interruptionModeIOS: 1, // DO_NOT_MIX
+          interruptionModeAndroid: 1, // DO_NOT_MIX
+          playThroughEarpieceAndroid: false,
+          // Force audio to play through speaker
+          allowsRecordingIOS: false,
+        });
+        
+        isAudioConfigured.current = true;
+      } catch (error) {
+        console.error('Error setting audio mode:', error);
+      }
     };
     
     setupAudio();
@@ -89,6 +94,24 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
     try {
       setIsLoading(true);
       setError(null);
+
+      // Ensure audio is configured before playback
+      if (!isAudioConfigured.current) {
+        try {
+          await Audio.setAudioModeAsync({
+            playsInSilentModeIOS: true,
+            staysActiveInBackground: false,
+            shouldDuckAndroid: false,
+            interruptionModeIOS: 1, // DO_NOT_MIX
+            interruptionModeAndroid: 1, // DO_NOT_MIX
+            playThroughEarpieceAndroid: false,
+            allowsRecordingIOS: false,
+          });
+          isAudioConfigured.current = true;
+        } catch (error) {
+          console.error('Error configuring audio in speak():', error);
+        }
+      }
 
       // Stop any existing playback
       await stop();
@@ -166,21 +189,29 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
       }
 
       // Create and load sound with current volume
-      const { sound } = await Audio.Sound.createAsync(
+      const { sound, status } = await Audio.Sound.createAsync(
         { uri: audioUri },
         { 
           shouldPlay: true,
-          volume: volume,
+          volume: 1.0, // Force max volume
           isMuted: false,
+          isLooping: false,
+          rate: 1.0,
+          shouldCorrectPitch: true,
         },
         onPlaybackStatusUpdate
       );
 
-      // Ensure volume is set
-      await sound.setVolumeAsync(volume);
+      // Ensure volume is set to max
+      await sound.setVolumeAsync(1.0);
       
       soundRef.current = sound;
       setIsPlaying(true);
+      
+      // Force play if not already playing
+      if (status && 'isLoaded' in status && status.isLoaded && !status.isPlaying) {
+        await sound.playAsync();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate speech');
       console.error('TTS Error:', err);
@@ -198,6 +229,9 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
         setIsPlaying(false);
         setProgress(0);
       }
+    } else if (status.error) {
+      console.error('Playback error:', status.error);
+      setError(status.error);
     }
   };
 

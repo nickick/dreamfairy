@@ -22,6 +22,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { StoriesDrawer } from "@/components/StoriesDrawer";
 
 const STORY_SEEDS = [
   "A magical forest adventure",
@@ -32,10 +33,7 @@ const STORY_SEEDS = [
 
 type SectionItem =
   | { type: "header"; key: string }
-  | { type: "savedStoriesTitle"; key: string }
-  | { type: "loading"; key: string }
-  | { type: "savedStory"; key: string; data: Story }
-  | { type: "noStories"; key: string }
+  | { type: "continueButton"; key: string }
   | { type: "newAdventureTitle"; key: string }
   | { type: "seed"; key: string; data: string }
   | { type: "startButton"; key: string };
@@ -44,6 +42,7 @@ export default function HomeScreen() {
   const [selectedSeed, setSelectedSeed] = useState<string | null>(null);
   const [savedStories, setSavedStories] = useState<Story[]>([]);
   const [storiesLoading, setStoriesLoading] = useState(true);
+  const [drawerVisible, setDrawerVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const colorScheme = useColorScheme();
@@ -109,17 +108,9 @@ export default function HomeScreen() {
   // Header section
   sections.push({ type: "header", key: "header" });
 
-  // Saved stories section - show even if empty to help debug
-  sections.push({ type: "savedStoriesTitle", key: "savedStoriesTitle" });
-  if (storiesLoading) {
-    sections.push({ type: "loading", key: "loading" });
-  } else if (savedStories.length > 0) {
-    savedStories.forEach((story) => {
-      sections.push({ type: "savedStory", key: story.id, data: story });
-    });
-  } else if (user) {
-    // Show a message if no stories found
-    sections.push({ type: "noStories", key: "noStories" });
+  // Continue button - only show if there are saved stories
+  if (!storiesLoading && savedStories.length > 0) {
+    sections.push({ type: "continueButton", key: "continueButton" });
   }
 
   // New adventure section
@@ -143,123 +134,38 @@ export default function HomeScreen() {
           </>
         );
 
-      case "savedStoriesTitle":
-        return (
-          <ThemedText
-            type="subtitle"
-            style={[
-              styles.sectionTitle,
-              { fontFamily: theme.fonts.title, color: colors.text },
-            ]}
-          >
-            Continue Your Adventures
-          </ThemedText>
-        );
-
-      case "loading":
-        return (
-          <ActivityIndicator
-            size="large"
-            color={colors.text}
-            style={styles.loader}
-          />
-        );
-
-      case "noStories":
-        return (
-          <View style={styles.noStoriesContainer}>
-            <ThemedText
-              style={[
-                styles.noStoriesText,
-                { fontFamily: theme.fonts.body, color: colors.text, opacity: 0.6 },
-              ]}
-            >
-              No saved stories yet. Start a new adventure!
-            </ThemedText>
-            <TouchableOpacity
-              style={[
-                styles.refreshButton,
-                {
-                  backgroundColor: colors.secondary,
-                  borderColor: colors.border,
-                  borderRadius: theme.styles.borderRadius,
-                  borderWidth: theme.styles.borderWidth,
-                },
-              ]}
-              onPress={() => {
-                // Force reload stories
-                loadStories();
-              }}
-            >
-              <ThemedText
-                style={[
-                  styles.refreshButtonText,
-                  { fontFamily: theme.fonts.button, color: colors.text },
-                ]}
-              >
-                Refresh
-              </ThemedText>
-            </TouchableOpacity>
-          </View>
-        );
-
-      case "savedStory":
-        const story = item.data;
-        const storyTheme =
-          storyThemeMap[story.seed] === "enchantedForest"
-            ? enchantedForestTheme
-            : retroFutureTheme;
-        const storyColors = isDark
-          ? storyTheme.colors.dark
-          : storyTheme.colors.light;
-
+      case "continueButton":
         return (
           <TouchableOpacity
             style={[
-              styles.storyCard,
+              styles.continueButton,
               {
-                backgroundColor: storyColors.primary,
-                borderRadius: storyTheme.styles.borderRadius,
-                borderWidth: storyTheme.styles.borderWidth,
-                borderColor: storyColors.border,
-                shadowColor: storyColors.border,
-                shadowOffset: storyTheme.styles.shadowOffset,
-                shadowOpacity: storyTheme.styles.shadowOpacity,
-                shadowRadius: storyTheme.styles.shadowRadius,
+                backgroundColor: colors.secondary,
+                borderRadius: theme.styles.borderRadius,
+                borderWidth: theme.styles.borderWidth,
+                borderColor: colors.border,
+                shadowColor: colors.border,
+                shadowOffset: theme.styles.shadowOffset,
+                shadowOpacity: theme.styles.shadowOpacity,
+                shadowRadius: theme.styles.shadowRadius,
               },
             ]}
-            onPress={() => handleContinueStory(story.id, story.seed)}
+            onPress={() => setDrawerVisible(true)}
           >
-            <View style={styles.storyCardContent}>
-              <ThemedText
-                style={[
-                  styles.storyTitle,
-                  {
-                    fontFamily: storyTheme.fonts.button,
-                    color: storyColors.text,
-                  },
-                ]}
-              >
-                {story.title || story.seed}
-              </ThemedText>
-              <ThemedText
-                style={[
-                  styles.storyDate,
-                  {
-                    fontFamily: storyTheme.fonts.body,
-                    color: storyColors.text,
-                    opacity: 0.7,
-                  },
-                ]}
-              >
-                {new Date(story.updated_at).toLocaleDateString()}
-              </ThemedText>
-            </View>
+            <ThemedText
+              type="defaultSemiBold"
+              style={[
+                styles.continueButtonText,
+                { fontFamily: theme.fonts.button, color: colors.text },
+              ]}
+            >
+              Continue Story
+            </ThemedText>
             <Ionicons
-              name="chevron-forward"
+              name="chevron-up"
               size={20}
-              color={storyColors.text}
-              style={{ opacity: 0.5 }}
+              color={colors.text}
+              style={{ marginLeft: 8 }}
             />
           </TouchableOpacity>
         );
@@ -377,6 +283,14 @@ export default function HomeScreen() {
           showsVerticalScrollIndicator={false}
         />
       </ThemedView>
+      <StoriesDrawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        stories={savedStories}
+        loading={storiesLoading}
+        onSelectStory={handleContinueStory}
+        onRefresh={loadStories}
+      />
     </SafeAreaView>
   );
 }
@@ -506,5 +420,20 @@ const styles = StyleSheet.create({
   },
   refreshButtonText: {
     fontSize: 14,
+  },
+  continueButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    marginTop: 20,
+    marginBottom: 12,
+    minHeight: 56,
+    minWidth: 200,
+  },
+  continueButtonText: {
+    fontSize: 16,
+    lineHeight: 22,
   },
 });
