@@ -1,15 +1,18 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FlatList,
   Platform,
   SafeAreaView,
   StyleSheet,
   TouchableOpacity,
+  useColorScheme,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTheme } from "@/contexts/ThemeContext";
+import { storyThemeMap } from "@/constants/Themes";
 
 const STORY_SEEDS = [
   "A magical forest adventure",
@@ -22,6 +25,15 @@ export default function HomeScreen() {
   const [selectedSeed, setSelectedSeed] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const colorScheme = useColorScheme();
+  const { theme, setThemeName, isDark } = useTheme();
+  const colors = isDark ? theme.colors.dark : theme.colors.light;
+
+  useEffect(() => {
+    if (selectedSeed && storyThemeMap[selectedSeed]) {
+      setThemeName(storyThemeMap[selectedSeed]);
+    }
+  }, [selectedSeed, setThemeName]);
 
   const handleStartStory = () => {
     if (selectedSeed) {
@@ -30,14 +42,14 @@ export default function HomeScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <ThemedView
         style={[styles.container, { paddingBottom: insets.bottom + 24 }]}
       >
-        <ThemedText type="title" style={styles.header}>
+        <ThemedText type="title" style={[styles.header, { fontFamily: theme.fonts.title }]}>
           Welcome to Dream Fairy!
         </ThemedText>
-        <ThemedText type="subtitle" style={styles.subtitle}>
+        <ThemedText type="subtitle" style={[styles.subtitle, { fontFamily: theme.fonts.title }]}>
           Choose a story seed to begin your adventure:
         </ThemedText>
         <FlatList
@@ -47,11 +59,21 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={[
                 styles.seedCard,
+                {
+                  backgroundColor: selectedSeed === item ? colors.secondary : colors.primary,
+                  borderRadius: theme.styles.borderRadius,
+                  borderWidth: theme.styles.borderWidth,
+                  borderColor: colors.border,
+                  shadowColor: colors.border,
+                  shadowOffset: theme.styles.shadowOffset,
+                  shadowOpacity: theme.styles.shadowOpacity,
+                  shadowRadius: theme.styles.shadowRadius,
+                },
                 selectedSeed === item && styles.selectedSeedCard,
               ]}
               onPress={() => setSelectedSeed(item)}
             >
-              <ThemedText type="defaultSemiBold" style={styles.seedCardText}>
+              <ThemedText type="defaultSemiBold" style={[styles.seedCardText, { fontFamily: theme.fonts.button }]}>
                 {item}
               </ThemedText>
             </TouchableOpacity>
@@ -59,7 +81,20 @@ export default function HomeScreen() {
           contentContainerStyle={styles.seedList}
         />
         <TouchableOpacity
-          style={[styles.startButton, !selectedSeed && styles.disabledButton]}
+          style={[
+            styles.startButton,
+            {
+              backgroundColor: !selectedSeed ? colors.icon : colors.accent,
+              borderRadius: theme.styles.borderRadius,
+              borderWidth: theme.styles.borderWidth,
+              borderColor: colors.border,
+              shadowColor: colors.border,
+              shadowOffset: theme.styles.shadowOffset,
+              shadowOpacity: theme.styles.shadowOpacity,
+              shadowRadius: theme.styles.shadowRadius,
+            },
+            !selectedSeed && styles.disabledButton
+          ]}
           onPress={handleStartStory}
           disabled={!selectedSeed}
         >
@@ -67,6 +102,7 @@ export default function HomeScreen() {
             type="defaultSemiBold"
             style={[
               styles.startButtonText,
+              { fontFamily: theme.fonts.button },
               !selectedSeed
                 ? styles.startButtonTextDisabled
                 : styles.startButtonTextEnabled,
@@ -87,7 +123,6 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "transparent",
     paddingTop: Platform.OS === "web" ? 32 : 0,
   },
   container: {
@@ -111,50 +146,29 @@ const styles = StyleSheet.create({
   },
   seedCard: {
     padding: 16,
-    borderRadius: 0,
-    backgroundColor: "#74B9FF",
     marginBottom: 12,
     alignItems: "center",
-    borderWidth: 4,
-    borderColor: "#000",
-    shadowColor: "#000",
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
   },
   selectedSeedCard: {
-    backgroundColor: "#55EFC4",
     transform: [{ translateX: -2 }, { translateY: -2 }],
-    shadowOffset: { width: 6, height: 6 },
   },
   startButton: {
-    backgroundColor: "#FF6B6B",
     paddingVertical: 16,
     paddingHorizontal: 40,
-    borderRadius: 0,
     alignItems: "center",
     marginBottom: 24,
-    borderWidth: 4,
-    borderColor: "#000",
-    shadowColor: "#000",
-    shadowOffset: { width: 4, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 0,
   },
   disabledButton: {
-    backgroundColor: "#B2BEC3",
-    shadowOffset: { width: 2, height: 2 },
+    opacity: 0.6,
   },
   seedCardText: {
     color: "#2D3436",
-    fontFamily: "PressStart2P",
     fontSize: 12,
     lineHeight: 18,
     textAlign: "center",
   },
   startButtonText: {
     fontSize: 14,
-    fontFamily: "PressStart2P",
   },
   startButtonTextEnabled: {
     color: "#F5F3F4",
