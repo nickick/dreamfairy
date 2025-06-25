@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
@@ -6,12 +6,65 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { supabase } from '@/lib/supabase';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { theme, isDark } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const insets = useSafeAreaInsets();
+  const [storyCount, setStoryCount] = useState(0);
+  const [choiceCount, setChoiceCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        // Get story count
+        const { count: stories } = await supabase
+          .from('stories')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        // Get total choices made (count nodes with non-null choice_made)
+        const { count: choices } = await supabase
+          .from('story_nodes')
+          .select('story_id', { count: 'exact', head: true })
+          .eq('story_id', user.id)
+          .not('choice_made', 'is', null);
+
+        // For a more accurate count, we need to join through stories
+        const { data: userStories } = await supabase
+          .from('stories')
+          .select('id')
+          .eq('user_id', user.id);
+
+        if (userStories && userStories.length > 0) {
+          const storyIds = userStories.map(s => s.id);
+          const { count: actualChoices } = await supabase
+            .from('story_nodes')
+            .select('*', { count: 'exact', head: true })
+            .in('story_id', storyIds)
+            .not('choice_made', 'is', null);
+
+          setChoiceCount(actualChoices || 0);
+        }
+
+        setStoryCount(stories || 0);
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [user]);
 
   const handleSignOut = () => {
     Alert.alert(
@@ -79,7 +132,7 @@ export default function ProfileScreen() {
                   color: colors.accent
                 }
               ]}>
-                0
+                {loading ? '...' : storyCount}
               </ThemedText>
               <ThemedText style={[
                 styles.statLabel,
@@ -106,7 +159,7 @@ export default function ProfileScreen() {
                   color: colors.accent
                 }
               ]}>
-                0
+                {loading ? '...' : choiceCount}
               </ThemedText>
               <ThemedText style={[
                 styles.statLabel,

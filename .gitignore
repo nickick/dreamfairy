@@ -37,3 +37,11 @@ yarn-error.*
 *.tsbuildinfo
 
 app-example
+
+# Supabase
+supabase/.temp/
+supabase/.branches/
+supabase/.env
+
+# Environment files
+.env

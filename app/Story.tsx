@@ -7,6 +7,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useGenerateImage } from "@/hooks/useGenerateImage";
 import { useGenerateStory } from "@/hooks/useGenerateStory";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
+import { useStoryPersistence } from "@/hooks/useStoryPersistence";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -44,8 +45,12 @@ const StoryNode = React.forwardRef<
     onLayout?: (e: LayoutChangeEvent) => void;
     isCurrentNarration: boolean;
     onSelectNarration: () => void;
+    nodeId?: string;
+    storyId?: string;
+    onImageGenerated?: (imageUrl: string) => void;
+    existingImageUrl?: string;
   }
->(({ story, choice, isDark, colors, theme, onLayout, isCurrentNarration, onSelectNarration }, _ref) => {
+>(({ story, choice, isDark, colors, theme, onLayout, isCurrentNarration, onSelectNarration, nodeId, storyId, onImageGenerated, existingImageUrl }, _ref) => {
   const {
     imageUrl,
     loading: imageLoading,
@@ -54,10 +59,21 @@ const StoryNode = React.forwardRef<
   } = useGenerateImage(story);
 
   useEffect(() => {
-    if (story) {
+    // Only generate image if we don't have an existing one
+    if (story && !existingImageUrl) {
       regenerateImage();
     }
-  }, [story, regenerateImage]);
+  }, [story, regenerateImage, existingImageUrl]);
+
+  // Save image URL when generated
+  useEffect(() => {
+    if (imageUrl && onImageGenerated && !existingImageUrl) {
+      onImageGenerated(imageUrl);
+    }
+  }, [imageUrl, onImageGenerated, existingImageUrl]);
+
+  // Use existing image URL if available, otherwise use generated one
+  const displayImageUrl = existingImageUrl || imageUrl;
 
   return (
     <View style={styles.storyBlock} onLayout={onLayout}>
@@ -89,16 +105,16 @@ const StoryNode = React.forwardRef<
       >
         {/* Image above the story text */}
         <View style={styles.imageContainer}>
-          {imageLoading && (
+          {imageLoading && !existingImageUrl && (
             <ActivityIndicator
               size="large"
               color={colors.text}
               style={{ marginVertical: 16 }}
             />
           )}
-          {imageUrl && (
+          {displayImageUrl && (
             <Animated.Image
-              source={{ uri: imageUrl }}
+              source={{ uri: displayImageUrl }}
               style={[
                 styles.storyImage,
                 {
@@ -146,12 +162,12 @@ const StoryNode = React.forwardRef<
               color: colors.text,
               borderColor: colors.border,
               fontFamily: theme.fonts.body,
-              borderTopLeftRadius: imageUrl ? 0 : theme.styles.borderRadius,
-              borderTopRightRadius: imageUrl ? 0 : theme.styles.borderRadius,
+              borderTopLeftRadius: displayImageUrl ? 0 : theme.styles.borderRadius,
+              borderTopRightRadius: displayImageUrl ? 0 : theme.styles.borderRadius,
               borderBottomLeftRadius: theme.styles.borderRadius,
               borderBottomRightRadius: theme.styles.borderRadius,
               borderWidth: theme.styles.borderWidth,
-              borderTopWidth: imageUrl ? theme.styles.borderWidth : theme.styles.borderWidth,
+              borderTopWidth: displayImageUrl ? theme.styles.borderWidth : theme.styles.borderWidth,
             },
           ]}
         >
@@ -187,12 +203,16 @@ const StoryNode = React.forwardRef<
 });
 
 export default function StoryScreen() {
-  const { seed } = useLocalSearchParams();
+  const { seed, storyId } = useLocalSearchParams();
   const [steps, setSteps] = useState<StoryStep[]>([]); // Each step: {story, choice}
   const [history, setHistory] = useState<string[]>([]); // Just the choices for the hook
   const [currentNarrationIndex, setCurrentNarrationIndex] = useState<number | null>(null);
+  const [currentStoryId, setCurrentStoryId] = useState<string | null>(null);
+  const [nodeIds, setNodeIds] = useState<string[]>([]);
+  const [skipInitialGeneration, setSkipInitialGeneration] = useState(!!storyId);
+  
   const { story, choices, loading, error, regenerate } = useGenerateStory(
-    typeof seed === "string" ? seed : undefined,
+    typeof seed === "string" && !skipInitialGeneration ? seed : undefined,
     history
   );
   const scrollViewRef = useRef<ScrollView>(null);
@@ -205,6 +225,14 @@ export default function StoryScreen() {
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const latestY = useRef<number | null>(null);
   const { speak, pause, resume, stop, isLoading: ttsLoading, isPlaying, progress, error: ttsError } = useTextToSpeech();
+  const { 
+    createStory, 
+    saveStoryNode, 
+    saveChoices, 
+    getStoryWithNodes,
+    loading: persistenceLoading,
+    error: persistenceError 
+  } = useStoryPersistence();
   const insets = useSafeAreaInsets();
 
   // Set theme based on story seed
@@ -214,42 +242,153 @@ export default function StoryScreen() {
     }
   }, [seed, setThemeName]);
 
-  // On first load, add the first story node
+  // Track if we've loaded an existing story
+  const [isExistingStoryLoaded, setIsExistingStoryLoaded] = useState(false);
+  const [existingNodeData, setExistingNodeData] = useState<Map<number, any>>(new Map());
+
+  // Load existing story if storyId is provided
   useEffect(() => {
-    if (story && steps.length === 0 && !loading && !error) {
-      setSteps([{ story, choice: null }]);
-      
-      // Auto-narrate first story and set current narration index
-      if (!ttsLoading && !isPlaying) {
-        speak(story, 'narrator');
-        setCurrentNarrationIndex(0);
+    const loadExistingStory = async () => {
+      if (typeof storyId === "string") {
+        const storyData = await getStoryWithNodes(storyId);
+        if (storyData) {
+          setCurrentStoryId(storyId);
+          const loadedSteps: StoryStep[] = [];
+          const loadedHistory: string[] = [];
+          const loadedNodeIds: string[] = [];
+          const nodeDataMap = new Map();
+          
+          storyData.nodes.forEach((node) => {
+            loadedSteps.push({
+              story: node.story_text,
+              choice: node.choice_made
+            });
+            if (node.choice_made) {
+              loadedHistory.push(node.choice_made);
+            }
+            loadedNodeIds.push(node.id);
+            // Store additional node data (like image URLs)
+            nodeDataMap.set(node.node_index, {
+              imageUrl: node.image_url,
+              narrationUrl: node.narration_url
+            });
+          });
+          
+          setSteps(loadedSteps);
+          setHistory(loadedHistory);
+          setNodeIds(loadedNodeIds);
+          setExistingNodeData(nodeDataMap);
+          setIsExistingStoryLoaded(true);
+          // Allow generation for new choices after loading
+          setSkipInitialGeneration(false);
+        }
       }
+    };
+    
+    loadExistingStory();
+  }, [storyId, getStoryWithNodes]);
+
+  // On first load, add the first story node and create story in database
+  useEffect(() => {
+    // Skip if we're loading an existing story or if we have a storyId
+    if (isExistingStoryLoaded || storyId) {
+      return;
+    }
+    
+    if (story && steps.length === 0 && !loading && !error && !currentStoryId) {
+      const initializeStory = async () => {
+        // Create story in database
+        if (typeof seed === "string") {
+          const newStory = await createStory(seed);
+          if (newStory) {
+            setCurrentStoryId(newStory.id);
+            
+            // Save first node
+            const node = await saveStoryNode(
+              newStory.id,
+              0,
+              story,
+              null
+            );
+            
+            if (node) {
+              setNodeIds([node.id]);
+              
+              // Save initial choices if any
+              if (choices && choices.length > 0) {
+                await saveChoices(node.id, choices);
+              }
+            }
+          }
+        }
+        
+        setSteps([{ story, choice: null }]);
+        
+        // Auto-narrate first story and set current narration index
+        if (!ttsLoading && !isPlaying) {
+          speak(story, 'narrator');
+          setCurrentNarrationIndex(0);
+        }
+      };
+      
+      initializeStory();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [story, loading, error]);
+  }, [story, loading, error, currentStoryId, isExistingStoryLoaded, storyId]);
 
-  // When a new choice is made, add the new story node
+  // When a new choice is made, add the new story node and save to database
   useEffect(() => {
+    // Skip if this is the first render after loading an existing story
+    if (isExistingStoryLoaded && history.length < steps.length) {
+      return;
+    }
+    
     if (
       story &&
       steps.length > 0 &&
       steps[steps.length - 1].story !== story &&
       !loading &&
-      !error
+      !error &&
+      currentStoryId &&
+      history.length > 0 // Only create new nodes when user has made choices
     ) {
-      setSteps((prev) => [
-        ...prev,
-        { story, choice: history[history.length - 1] },
-      ]);
+      const saveNewNode = async () => {
+        const nodeIndex = steps.length;
+        const choiceMade = history[history.length - 1];
+        
+        // Save the new node
+        const node = await saveStoryNode(
+          currentStoryId,
+          nodeIndex,
+          story,
+          choiceMade
+        );
+        
+        if (node) {
+          setNodeIds(prev => [...prev, node.id]);
+          
+          // Save choices for this node if any
+          if (choices && choices.length > 0) {
+            await saveChoices(node.id, choices);
+          }
+        }
+        
+        setSteps((prev) => [
+          ...prev,
+          { story, choice: choiceMade },
+        ]);
+        
+        // Auto-narrate new story content and update current narration index
+        if (!ttsLoading && !isPlaying) {
+          speak(story, 'narrator');
+          setCurrentNarrationIndex(steps.length);
+        }
+      };
       
-      // Auto-narrate new story content and update current narration index
-      if (!ttsLoading && !isPlaying) {
-        speak(story, 'narrator');
-        setCurrentNarrationIndex(steps.length);
-      }
+      saveNewNode();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [story, loading, error]);
+  }, [story, loading, error, currentStoryId]);
 
   useEffect(() => {
     if (latestY.current !== null && scrollViewRef.current) {
@@ -333,6 +472,19 @@ export default function StoryScreen() {
             onSelectNarration={() => {
               speak(step.story, 'narrator');
               setCurrentNarrationIndex(idx);
+            }}
+            nodeId={nodeIds[idx]}
+            storyId={currentStoryId || undefined}
+            existingImageUrl={existingNodeData.get(idx)?.imageUrl}
+            onImageGenerated={async (imageUrl) => {
+              // Update the node with the generated image URL
+              if (currentStoryId && nodeIds[idx]) {
+                const { supabase } = await import('@/lib/supabase');
+                await supabase
+                  .from('story_nodes')
+                  .update({ image_url: imageUrl })
+                  .eq('id', nodeIds[idx]);
+              }
             }}
           />
         ))}
