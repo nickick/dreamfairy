@@ -74,72 +74,90 @@ const StoryNode = React.forwardRef<
           You chose: {choice}
         </ThemedText>
       )}
-      {/* Image above the story text */}
-      <View style={styles.imageContainer}>
-        {imageLoading && (
-          <ActivityIndicator
-            size="large"
-            color={colors.text}
-            style={{ marginVertical: 16 }}
-          />
-        )}
-        {imageUrl && (
-          <Animated.Image
-            source={{ uri: imageUrl }}
-            style={[
-              styles.storyImage,
-              {
-                borderColor: colors.border,
-                borderRadius: theme.styles.borderRadius,
-                borderWidth: theme.styles.borderWidth,
-              },
-            ]}
-            resizeMode="cover"
-          />
-        )}
-        {imageError && (
-          <TouchableOpacity
-            onPress={regenerateImage}
-            style={[
-              styles.imageErrorButton,
-              {
-                backgroundColor: colors.accent,
-                borderColor: colors.border,
-                borderRadius: theme.styles.borderRadius,
-                borderWidth: theme.styles.borderWidth,
-              },
-            ]}
-          >
-            <ThemedText
-              style={[
-                styles.imageErrorText,
-                { fontFamily: theme.fonts.button, color: colors.text },
-              ]}
-            >
-              Image failed to load. Tap to retry.
-            </ThemedText>
-          </TouchableOpacity>
-        )}
-      </View>
-      <ThemedText
+      {/* Story card container with shadow */}
+      <View
         style={[
-          styles.storyText,
+          styles.storyCardContainer,
           {
-            backgroundColor: colors.primary,
-            color: colors.text,
-            borderColor: colors.border,
-            fontFamily: theme.fonts.body,
-            borderRadius: theme.styles.borderRadius,
-            borderWidth: theme.styles.borderWidth,
             shadowColor: colors.border,
             shadowOffset: theme.styles.shadowOffset,
             shadowOpacity: theme.styles.shadowOpacity,
             shadowRadius: theme.styles.shadowRadius,
+            borderRadius: theme.styles.borderRadius,
           },
         ]}
       >
-        {story}
-      </ThemedText>
+        {/* Image above the story text */}
+        <View style={styles.imageContainer}>
+          {imageLoading && (
+            <ActivityIndicator
+              size="large"
+              color={colors.text}
+              style={{ marginVertical: 16 }}
+            />
+          )}
+          {imageUrl && (
+            <Animated.Image
+              source={{ uri: imageUrl }}
+              style={[
+                styles.storyImage,
+                {
+                  borderColor: colors.border,
+                  borderTopLeftRadius: theme.styles.borderRadius,
+                  borderTopRightRadius: theme.styles.borderRadius,
+                  borderBottomLeftRadius: 0,
+                  borderBottomRightRadius: 0,
+                  borderWidth: theme.styles.borderWidth,
+                  borderBottomWidth: 0,
+                },
+              ]}
+              resizeMode="cover"
+            />
+          )}
+          {imageError && (
+            <TouchableOpacity
+              onPress={regenerateImage}
+              style={[
+                styles.imageErrorButton,
+                {
+                  backgroundColor: colors.accent,
+                  borderColor: colors.border,
+                  borderRadius: theme.styles.borderRadius,
+                  borderWidth: theme.styles.borderWidth,
+                },
+              ]}
+            >
+              <ThemedText
+                style={[
+                  styles.imageErrorText,
+                  { fontFamily: theme.fonts.button, color: colors.text },
+                ]}
+              >
+                Image failed to load. Tap to retry.
+              </ThemedText>
+            </TouchableOpacity>
+          )}
+        </View>
+        <ThemedText
+          style={[
+            styles.storyText,
+            {
+              backgroundColor: colors.primary,
+              color: colors.text,
+              borderColor: colors.border,
+              fontFamily: theme.fonts.body,
+              borderTopLeftRadius: imageUrl ? 0 : theme.styles.borderRadius,
+              borderTopRightRadius: imageUrl ? 0 : theme.styles.borderRadius,
+              borderBottomLeftRadius: theme.styles.borderRadius,
+              borderBottomRightRadius: theme.styles.borderRadius,
+              borderWidth: theme.styles.borderWidth,
+              borderTopWidth: imageUrl ? theme.styles.borderWidth : theme.styles.borderWidth,
+            },
+          ]}
+        >
+          {story}
+        </ThemedText>
+      </View>
       <TouchableOpacity
         onPress={onSelectNarration}
         style={[
@@ -330,35 +348,43 @@ export default function StoryScreen() {
               />
             ) : (
               <>
-                {/* Gradient divider */}
-                <LinearGradient
-                  colors={
-                    theme.colors[isDark ? "dark" : "light"]
-                      .gradientColors as any
-                  }
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={[
-                    styles.gradientBarInline,
-                    {
-                      borderColor: colors.border,
-                      borderRadius: theme.styles.borderRadius,
-                      borderWidth: theme.styles.borderWidth,
-                    },
-                  ]}
-                >
-                  <ThemedText
+                {/* Gradient divider with record button */}
+                <View style={styles.gradientBarContainer}>
+                  <LinearGradient
+                    colors={
+                      theme.colors[isDark ? "dark" : "light"]
+                        .gradientColors as any
+                    }
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
                     style={[
-                      styles.gradientBarText,
+                      styles.gradientBarInline,
                       {
-                        fontFamily: theme.fonts.title,
-                        color: isDark ? "#111" : "#111",
+                        borderColor: colors.border,
+                        borderRadius: theme.styles.borderRadius,
+                        borderWidth: theme.styles.borderWidth,
+                        flex: 1,
                       },
                     ]}
                   >
-                    What will you do next?
-                  </ThemedText>
-                </LinearGradient>
+                    <ThemedText
+                      style={[
+                        styles.gradientBarText,
+                        {
+                          fontFamily: theme.fonts.title,
+                          color: isDark ? "#111" : "#111",
+                        },
+                      ]}
+                    >
+                      What will you do next?
+                    </ThemedText>
+                  </LinearGradient>
+                  <VoiceRecorder
+                    onTranscript={(text) => handleChoice(text)}
+                    disabled={loading}
+                    storyContext={steps.length > 0 ? steps[steps.length - 1].story : ''}
+                  />
+                </View>
                 {/* Choices */}
                 {choices.map((choice, idx) => (
                   <TouchableOpacity
@@ -388,22 +414,6 @@ export default function StoryScreen() {
                     </ThemedText>
                   </TouchableOpacity>
                 ))}
-                {/* Voice recorder section */}
-                <View style={styles.voiceSection}>
-                  <ThemedText
-                    style={[
-                      styles.voiceSectionText,
-                      { fontFamily: theme.fonts.body, color: colors.text }
-                    ]}
-                  >
-                    Or speak your own choice:
-                  </ThemedText>
-                  <VoiceRecorder
-                    onTranscript={(text) => handleChoice(text)}
-                    disabled={loading}
-                    storyContext={steps.length > 0 ? steps[steps.length - 1].story : ''}
-                  />
-                </View>
                 {/* Divider with 'or' and regenerate button */}
                 <View style={styles.orDividerContainerInline}>
                   <ThemedText
@@ -483,11 +493,16 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     alignSelf: "center",
   },
+  storyCardContainer: {
+    width: "100%",
+    overflow: "hidden",
+  },
   storyText: {
     fontSize: 14,
     textAlign: "center",
     padding: 16,
     marginBottom: 0,
+    marginTop: 0,
     lineHeight: 22,
   },
   storyTextLight: {
@@ -661,12 +676,18 @@ const styles = StyleSheet.create({
   },
   gradientBarInline: {
     width: "100%",
-    paddingVertical: 16,
+    height: 56,
     paddingHorizontal: 0,
     alignItems: "center",
     justifyContent: "center",
+  },
+  gradientBarContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
     marginTop: 16,
     marginBottom: 20,
+    gap: 5,
   },
   orDividerContainerInline: {
     alignItems: "center",
@@ -679,13 +700,13 @@ const styles = StyleSheet.create({
   imageContainer: {
     width: "100%",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 0,
     minHeight: 140,
   },
   storyImage: {
     width: "100%",
-    height: 200,
-    marginBottom: 8,
+    height: 240,
+    marginBottom: 0,
     backgroundColor: "#222",
   },
   imageErrorButton: {

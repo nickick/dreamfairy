@@ -51,10 +51,6 @@ export function VoiceRecorder({ onTranscript, disabled, storyContext }: VoiceRec
             borderColor: colors.border,
             borderWidth: theme.styles.borderWidth,
             borderRadius: theme.styles.borderRadius,
-            shadowColor: colors.border,
-            shadowOffset: theme.styles.shadowOffset,
-            shadowOpacity: theme.styles.shadowOpacity,
-            shadowRadius: theme.styles.shadowRadius,
           },
           (disabled || isTranscribing) && styles.buttonDisabled,
         ]}
@@ -70,12 +66,6 @@ export function VoiceRecorder({ onTranscript, disabled, storyContext }: VoiceRec
         )}
       </TouchableOpacity>
       
-      {isRecording && (
-        <ThemedText style={[styles.recordingText, { fontFamily: theme.fonts.body, color: colors.accent }]}>
-          Recording...
-        </ThemedText>
-      )}
-      
       {error && (
         <ThemedText style={[styles.errorText, { fontFamily: theme.fonts.body, color: colors.accent }]}>
           {error}
@@ -88,7 +78,6 @@ export function VoiceRecorder({ onTranscript, disabled, storyContext }: VoiceRec
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    marginVertical: 12,
   },
   button: {
     width: 56,
@@ -98,10 +87,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.6,
-  },
-  recordingText: {
-    fontSize: 12,
-    marginTop: 8,
   },
   errorText: {
     fontSize: 11,
