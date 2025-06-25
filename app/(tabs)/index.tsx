@@ -1,8 +1,18 @@
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { useRouter } from "expo-router";
-import React, { useState, useEffect } from "react";
 import {
+  enchantedForestTheme,
+  retroFutureTheme,
+  storyThemeMap,
+} from "@/constants/Themes";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Story, useStoryPersistence } from "@/hooks/useStoryPersistence";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
+import React, { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
   FlatList,
   Platform,
   SafeAreaView,
@@ -10,15 +20,8 @@ import {
   TouchableOpacity,
   useColorScheme,
   View,
-  ActivityIndicator,
-  ScrollView,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useTheme } from "@/contexts/ThemeContext";
-import { storyThemeMap, retroFutureTheme, enchantedForestTheme } from "@/constants/Themes";
-import { useStoryPersistence, Story } from "@/hooks/useStoryPersistence";
-import { Ionicons } from "@expo/vector-icons";
-import { useAuth } from "@/contexts/AuthContext";
 
 const STORY_SEEDS = [
   "A magical forest adventure",
@@ -26,6 +29,15 @@ const STORY_SEEDS = [
   "The secret life of a city cat",
   "A fairy's quest to save the moon",
 ];
+
+type SectionItem =
+  | { type: "header"; key: string }
+  | { type: "savedStoriesTitle"; key: string }
+  | { type: "loading"; key: string }
+  | { type: "savedStory"; key: string; data: Story }
+  | { type: "newAdventureTitle"; key: string }
+  | { type: "seed"; key: string; data: string }
+  | { type: "startButton"; key: string };
 
 export default function HomeScreen() {
   const [selectedSeed, setSelectedSeed] = useState<string | null>(null);
@@ -48,10 +60,10 @@ export default function HomeScreen() {
   // Load saved stories
   useEffect(() => {
     let mounted = true;
-    
+
     const loadStories = async () => {
       if (!mounted || !user) return;
-      
+
       try {
         setStoriesLoading(true);
         const stories = await getUserStories();
@@ -60,21 +72,21 @@ export default function HomeScreen() {
           setStoriesLoading(false);
         }
       } catch (error) {
-        console.error('Error loading stories:', error);
+        console.error("Error loading stories:", error);
         if (mounted) {
           setSavedStories([]);
           setStoriesLoading(false);
         }
       }
     };
-    
+
     if (user) {
       loadStories();
     } else {
       setStoriesLoading(false);
       setSavedStories([]);
     }
-    
+
     return () => {
       mounted = false;
     };
@@ -91,56 +103,76 @@ export default function HomeScreen() {
   };
 
   // Prepare all sections as data for a single FlatList
-  const sections = [];
-  
+  const sections: SectionItem[] = [];
+
   // Header section
-  sections.push({ type: 'header', key: 'header' });
-  
+  sections.push({ type: "header", key: "header" });
+
   // Saved stories section
   if (savedStories.length > 0) {
-    sections.push({ type: 'savedStoriesTitle', key: 'savedStoriesTitle' });
+    sections.push({ type: "savedStoriesTitle", key: "savedStoriesTitle" });
     if (storiesLoading) {
-      sections.push({ type: 'loading', key: 'loading' });
+      sections.push({ type: "loading", key: "loading" });
     } else {
       savedStories.forEach((story) => {
-        sections.push({ type: 'savedStory', key: story.id, data: story });
+        sections.push({ type: "savedStory", key: story.id, data: story });
       });
     }
   }
-  
-  // New adventure section
-  sections.push({ type: 'newAdventureTitle', key: 'newAdventureTitle' });
-  STORY_SEEDS.forEach((seed) => {
-    sections.push({ type: 'seed', key: seed, data: seed });
-  });
-  sections.push({ type: 'startButton', key: 'startButton' });
 
-  const renderItem = ({ item }) => {
+  // New adventure section
+  sections.push({ type: "newAdventureTitle", key: "newAdventureTitle" });
+  STORY_SEEDS.forEach((seed) => {
+    sections.push({ type: "seed", key: seed, data: seed });
+  });
+  sections.push({ type: "startButton", key: "startButton" });
+
+  const renderItem = ({ item }: { item: SectionItem }) => {
     switch (item.type) {
-      case 'header':
+      case "header":
         return (
           <>
-            <ThemedText type="title" style={[styles.header, { fontFamily: theme.fonts.title }]}>
-              Welcome to{'\n'}Dream Fairy!
+            <ThemedText
+              type="title"
+              style={[styles.header, { fontFamily: theme.fonts.title }]}
+            >
+              Welcome to{"\n"}Dream Fairy!
             </ThemedText>
           </>
         );
-        
-      case 'savedStoriesTitle':
+
+      case "savedStoriesTitle":
         return (
-          <ThemedText type="subtitle" style={[styles.sectionTitle, { fontFamily: theme.fonts.title, color: colors.text }]}>
+          <ThemedText
+            type="subtitle"
+            style={[
+              styles.sectionTitle,
+              { fontFamily: theme.fonts.title, color: colors.text },
+            ]}
+          >
             Continue Your Adventures
           </ThemedText>
         );
-        
-      case 'loading':
-        return <ActivityIndicator size="large" color={colors.text} style={styles.loader} />;
-        
-      case 'savedStory':
+
+      case "loading":
+        return (
+          <ActivityIndicator
+            size="large"
+            color={colors.text}
+            style={styles.loader}
+          />
+        );
+
+      case "savedStory":
         const story = item.data;
-        const storyTheme = storyThemeMap[story.seed] === 'enchantedForest' ? enchantedForestTheme : retroFutureTheme;
-        const storyColors = isDark ? storyTheme.colors.dark : storyTheme.colors.light;
-        
+        const storyTheme =
+          storyThemeMap[story.seed] === "enchantedForest"
+            ? enchantedForestTheme
+            : retroFutureTheme;
+        const storyColors = isDark
+          ? storyTheme.colors.dark
+          : storyTheme.colors.light;
+
         return (
           <TouchableOpacity
             style={[
@@ -159,40 +191,71 @@ export default function HomeScreen() {
             onPress={() => handleContinueStory(story.id, story.seed)}
           >
             <View style={styles.storyCardContent}>
-              <ThemedText style={[styles.storyTitle, { fontFamily: storyTheme.fonts.button, color: storyColors.text }]}>
+              <ThemedText
+                style={[
+                  styles.storyTitle,
+                  {
+                    fontFamily: storyTheme.fonts.button,
+                    color: storyColors.text,
+                  },
+                ]}
+              >
                 {story.title || story.seed}
               </ThemedText>
-              <ThemedText style={[styles.storyDate, { fontFamily: storyTheme.fonts.body, color: storyColors.text, opacity: 0.7 }]}>
+              <ThemedText
+                style={[
+                  styles.storyDate,
+                  {
+                    fontFamily: storyTheme.fonts.body,
+                    color: storyColors.text,
+                    opacity: 0.7,
+                  },
+                ]}
+              >
                 {new Date(story.updated_at).toLocaleDateString()}
               </ThemedText>
             </View>
-            <Ionicons 
-              name="chevron-forward" 
-              size={20} 
-              color={storyColors.text} 
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={storyColors.text}
               style={{ opacity: 0.5 }}
             />
           </TouchableOpacity>
         );
-        
-      case 'newAdventureTitle':
+
+      case "newAdventureTitle":
         return (
-          <ThemedText type="subtitle" style={[styles.sectionTitle, { fontFamily: theme.fonts.title, color: colors.text }]}>
+          <ThemedText
+            type="subtitle"
+            style={[
+              styles.sectionTitle,
+              { fontFamily: theme.fonts.title, color: colors.text },
+            ]}
+          >
             Start a New Adventure
           </ThemedText>
         );
-        
-      case 'seed':
+
+      case "seed":
         const seed = item.data;
-        const seedTheme = storyThemeMap[seed] === 'enchantedForest' ? enchantedForestTheme : retroFutureTheme;
-        const seedColors = isDark ? seedTheme.colors.dark : seedTheme.colors.light;
-        
+        const seedTheme =
+          storyThemeMap[seed] === "enchantedForest"
+            ? enchantedForestTheme
+            : retroFutureTheme;
+        const seedColors = isDark
+          ? seedTheme.colors.dark
+          : seedTheme.colors.light;
+
         return (
           <TouchableOpacity
             style={[
               styles.seedCard,
               {
-                backgroundColor: selectedSeed === seed ? seedColors.secondary : seedColors.primary,
+                backgroundColor:
+                  selectedSeed === seed
+                    ? seedColors.secondary
+                    : seedColors.primary,
                 borderRadius: seedTheme.styles.borderRadius,
                 borderWidth: seedTheme.styles.borderWidth,
                 borderColor: seedColors.border,
@@ -204,19 +267,27 @@ export default function HomeScreen() {
             ]}
             onPress={() => setSelectedSeed(seed)}
           >
-            <ThemedText type="defaultSemiBold" style={[styles.seedCardText, { fontFamily: seedTheme.fonts.button, color: seedColors.text }]}>
+            <ThemedText
+              type="defaultSemiBold"
+              style={[
+                styles.seedCardText,
+                { fontFamily: seedTheme.fonts.button, color: seedColors.text },
+              ]}
+            >
               {seed}
             </ThemedText>
           </TouchableOpacity>
         );
-        
-      case 'startButton':
+
+      case "startButton":
         return (
           <TouchableOpacity
             style={[
               styles.startButton,
               {
-                backgroundColor: !selectedSeed ? colors.secondary : colors.accent,
+                backgroundColor: !selectedSeed
+                  ? colors.secondary
+                  : colors.accent,
                 borderRadius: theme.styles.borderRadius,
                 borderWidth: theme.styles.borderWidth,
                 borderColor: colors.border,
@@ -225,7 +296,7 @@ export default function HomeScreen() {
                 shadowOpacity: theme.styles.shadowOpacity,
                 shadowRadius: theme.styles.shadowRadius,
               },
-              !selectedSeed && styles.disabledButton
+              !selectedSeed && styles.disabledButton,
             ]}
             onPress={handleStartStory}
             disabled={!selectedSeed}
@@ -244,20 +315,25 @@ export default function HomeScreen() {
             </ThemedText>
           </TouchableOpacity>
         );
-        
+
       default:
         return null;
     }
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <SafeAreaView
+      style={[styles.safeArea, { backgroundColor: colors.background }]}
+    >
       <ThemedView style={styles.container}>
         <FlatList
           data={sections}
           keyExtractor={(item) => item.key}
           renderItem={renderItem}
-          contentContainerStyle={[styles.listContent, { paddingBottom: insets.bottom + 24 }]}
+          contentContainerStyle={[
+            styles.listContent,
+            { paddingBottom: insets.bottom + 24 },
+          ]}
           showsVerticalScrollIndicator={false}
         />
       </ThemedView>
