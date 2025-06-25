@@ -20,11 +20,26 @@ export default function TabLayout() {
         tabBarBackground: TabBarBackground,
         tabBarStyle: Platform.select({
           ios: {
-            // Use a transparent background on iOS to show the blur effect
             position: "absolute",
+            backgroundColor: Colors[colorScheme ?? "light"].background,
+            borderTopWidth: 4,
+            borderTopColor: colorScheme === 'dark' ? Colors.dark.text : Colors.light.text,
+            height: 70,
+            paddingBottom: 8,
           },
-          default: {},
+          default: {
+            backgroundColor: Colors[colorScheme ?? "light"].background,
+            borderTopWidth: 4,
+            borderTopColor: colorScheme === 'dark' ? Colors.dark.text : Colors.light.text,
+            height: 70,
+            paddingBottom: 8,
+          },
         }),
+        tabBarLabelStyle: {
+          fontFamily: 'PressStart2P',
+          fontSize: 9,
+          marginTop: 4,
+        },
       }}
     >
       <Tabs.Screen

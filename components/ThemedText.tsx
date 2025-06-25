@@ -44,17 +44,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    lineHeight: 32,
+    fontSize: 20,
+    fontWeight: 'normal',
+    lineHeight: 28,
+    fontFamily: 'PressStart2P',
   },
   subtitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: 'normal',
+    fontFamily: 'PressStart2P',
+    lineHeight: 20,
   },
   link: {
     lineHeight: 30,
     fontSize: 16,
-    color: '#0a7ea4',
+    color: '#FF6B6B',
+    textDecorationLine: 'underline',
   },
 });
