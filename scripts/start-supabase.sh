@@ -20,7 +20,16 @@ if ! check_docker; then
     
     # Try to start Docker Desktop on macOS
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        open -a Docker
+        # Check if Docker is installed via Homebrew
+        if [ -d "/Applications/Docker.app" ]; then
+            open -a Docker
+        elif [ -d "/opt/homebrew/Caskroom/docker" ] || [ -d "/usr/local/Caskroom/docker" ]; then
+            # Docker installed via Homebrew Cask
+            open -a Docker
+        else
+            echo -e "${RED}Docker Desktop not found. Please install it with: brew install --cask docker${NC}"
+            exit 1
+        fi
         echo "Waiting for Docker to start..."
         
         # Wait for Docker to be ready (max 30 seconds)
