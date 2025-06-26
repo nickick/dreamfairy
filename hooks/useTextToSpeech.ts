@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Audio } from 'expo-av';
-import { ELEVENLABS_CONFIG } from '@/config/elevenlabs';
+import { EdgeFunctions } from '@/lib/edgeFunctions';
 
 interface UseTextToSpeechReturn {
   isLoading: boolean;
@@ -127,10 +127,6 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
         audioUri = existingAudioUrl;
         lastAudioUrlRef.current = existingAudioUrl;
       } else {
-        if (!ELEVENLABS_CONFIG.API_KEY) {
-          throw new Error('ElevenLabs API key not configured');
-        }
-
         // Create cache key
         const cacheKey = `${text}_${voiceType}`;
         
@@ -144,38 +140,13 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
           // Use cached audio
           audioUri = cachedEntry.audioUri;
         } else {
-        // Generate new audio
-        const response = await fetch(
-          `https://api.elevenlabs.io/v1/text-to-speech/${ELEVENLABS_CONFIG.VOICES[voiceType]}/stream`,
-          {
-            method: 'POST',
-            headers: {
-              'xi-api-key': ELEVENLABS_CONFIG.API_KEY,
-              'Content-Type': 'application/json',
-              'Accept': 'audio/mpeg',
-            },
-            body: JSON.stringify({
-              text,
-              model_id: ELEVENLABS_CONFIG.MODEL_ID,
-              voice_settings: ELEVENLABS_CONFIG.VOICE_SETTINGS,
-            }),
-          }
-        );
+          // Generate new audio using Supabase edge function
+          const response = await EdgeFunctions.textToSpeech({
+            text,
+            voiceType,
+          });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.detail?.message || `API Error: ${response.status}`);
-        }
-
-        // Convert response to base64
-        const arrayBuffer = await response.arrayBuffer();
-        const base64 = btoa(
-          new Uint8Array(arrayBuffer).reduce(
-            (data, byte) => data + String.fromCharCode(byte),
-            ''
-          )
-        );
-        audioUri = `data:audio/mpeg;base64,${base64}`;
+          audioUri = response.audioUrl;
 
           // Cache the audio
           audioCache.set(cacheKey, {
