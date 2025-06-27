@@ -148,29 +148,23 @@ export function useStoryPersistence() {
 
   // Get user's stories
   const getUserStories = useCallback(async (): Promise<Story[]> => {
-    console.log("[useStoryPersistence] getUserStories called, user:", user);
-    if (!user) {
-      console.log("[useStoryPersistence] No user, returning empty array");
-      return [];
-    }
+    if (!user) return [];
 
     setLoading(true);
     setError(null);
 
     try {
-      console.log("[useStoryPersistence] Fetching stories for user:", user.id);
       const { data, error } = await supabase
         .from("stories")
         .select("*")
         .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
 
-      console.log("[useStoryPersistence] Stories fetched:", data, "error:", error);
       if (error) throw error;
       return data || [];
     } catch (err) {
       setError(err as Error);
-      console.error("[useStoryPersistence] Error fetching stories:", err);
+      console.error("Error fetching stories:", err);
       return [];
     } finally {
       setLoading(false);
