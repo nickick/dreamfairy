@@ -50,6 +50,9 @@ export default function StoryScreen() {
   });
   const [showLoader, setShowLoader] = useState(false);
   const [hasNarratedCurrent, setHasNarratedCurrent] = useState(false);
+  const [autoPlayNodeIndex, setAutoPlayNodeIndex] = useState<number | null>(
+    null
+  );
   const narrationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -104,10 +107,11 @@ export default function StoryScreen() {
   const [pendingAssets, setPendingAssets] = useState<{
     imageUrl?: string;
     narrationUrl?: string;
+    nodeIndex?: number;
   } | null>(null);
   const [loadedChoices, setLoadedChoices] = useState<string[] | null>(null);
   const generatingAssetsRef = useRef(false);
-  const generatedNodeIndicesRef = useRef<Set<number>>(new Set());
+  const generatedStoriesRef = useRef<Set<string>>(new Set());
 
   // Load existing story if storyId is provided
   useEffect(() => {
@@ -153,36 +157,43 @@ export default function StoryScreen() {
   // Update existingNodeData and database when pendingAssets change
   useEffect(() => {
     const updateAssetsForNode = async () => {
-      if (pendingAssets && steps.length > 0) {
-        const latestNodeIndex = steps.length - 1;
+      if (
+        pendingAssets &&
+        pendingAssets.nodeIndex !== undefined &&
+        steps.length > 0
+      ) {
+        const targetNodeIndex = pendingAssets.nodeIndex;
 
-        // Update local cache
-        setExistingNodeData((prev) => {
-          const newMap = new Map(prev);
-          const currentData = newMap.get(latestNodeIndex) || {};
-          newMap.set(latestNodeIndex, {
-            ...currentData,
-            imageUrl: pendingAssets.imageUrl || currentData.imageUrl,
-            narrationUrl:
-              pendingAssets.narrationUrl || currentData.narrationUrl,
+        // Only process if the node exists in steps
+        if (targetNodeIndex < steps.length) {
+          // Update local cache
+          setExistingNodeData((prev) => {
+            const newMap = new Map(prev);
+            const currentData = newMap.get(targetNodeIndex) || {};
+            newMap.set(targetNodeIndex, {
+              ...currentData,
+              imageUrl: pendingAssets.imageUrl || currentData.imageUrl,
+              narrationUrl:
+                pendingAssets.narrationUrl || currentData.narrationUrl,
+            });
+            return newMap;
           });
-          return newMap;
-        });
 
-        // Update database if we have a node ID
-        const nodeId = nodeIds[latestNodeIndex];
-        if (nodeId) {
-          const updates: any = {};
-          if (pendingAssets.imageUrl)
-            updates.image_url = pendingAssets.imageUrl;
-          if (pendingAssets.narrationUrl)
-            updates.narration_url = pendingAssets.narrationUrl;
+          // Update database if we have a node ID
+          const nodeId = nodeIds[targetNodeIndex];
+          if (nodeId) {
+            const updates: any = {};
+            if (pendingAssets.imageUrl)
+              updates.image_url = pendingAssets.imageUrl;
+            if (pendingAssets.narrationUrl)
+              updates.narration_url = pendingAssets.narrationUrl;
 
-          if (Object.keys(updates).length > 0) {
-            await updateNodeAssets(nodeId, updates);
+            if (Object.keys(updates).length > 0) {
+              await updateNodeAssets(nodeId, updates);
 
-            // Clear pending assets after saving
-            setPendingAssets(null);
+              // Clear pending assets after saving
+              setPendingAssets(null);
+            }
           }
         }
       }
@@ -197,9 +208,8 @@ export default function StoryScreen() {
     if (loading && !prevLoading.current && !isExistingStoryLoaded) {
       setShowLoader(true);
       setHasNarratedCurrent(false);
-      setPendingAssets(null);
-      // Clear generated indices for new story generation
-      generatedNodeIndicesRef.current.clear();
+      // Don't clear pendingAssets here - they might be for the previous node
+      setAutoPlayNodeIndex(null);
       setLoadingStates({
         text: false,
         image: false,
@@ -210,14 +220,33 @@ export default function StoryScreen() {
     prevLoading.current = loading;
   }, [loading, showLoader, isExistingStoryLoaded]);
 
+  // Show loader immediately when starting with a seed
+  useEffect(() => {
+    if (
+      typeof seed === "string" &&
+      !skipInitialGeneration &&
+      !isExistingStoryLoaded &&
+      steps.length === 0
+    ) {
+      setShowLoader(true);
+      setLoadingStates({
+        text: false,
+        image: false,
+        narration: false,
+        choices: false,
+      });
+    }
+  }, [seed, skipInitialGeneration, isExistingStoryLoaded, steps.length]);
+
   // Track when story and choices are loaded and trigger edge functions
   useEffect(() => {
     // Only trigger for new story content when loader is showing
     if (story && choices && !error && !isExistingStoryLoaded && showLoader) {
-      const latestNodeIndex = steps.length;
+      const latestNodeIndex = steps.length; // This will be the index of the new node
 
-      // Check if we've already generated assets for this node
-      if (generatedNodeIndicesRef.current.has(latestNodeIndex)) {
+      // Check if we've already generated assets for this story content
+      const storyKey = story.substring(0, 100); // Use first 100 chars as key
+      if (generatedStoriesRef.current.has(storyKey)) {
         return;
       }
       // Mark text and choices as loaded immediately
@@ -234,9 +263,10 @@ export default function StoryScreen() {
           return;
         }
         generatingAssetsRef.current = true;
-        generatedNodeIndicesRef.current.add(latestNodeIndex);
+        generatedStoriesRef.current.add(storyKey);
 
-        // Check current state of assets
+        // Check current state of assets - note: latestNodeIndex is for the NEW node being added
+        // So we shouldn't have existing data for it yet
         const currentNodeData = existingNodeData.get(latestNodeIndex);
         const hasExistingImage = !!currentNodeData?.imageUrl;
         const hasExistingNarration = !!currentNodeData?.narrationUrl;
@@ -260,6 +290,7 @@ export default function StoryScreen() {
               setPendingAssets((prev) => ({
                 ...prev,
                 imageUrl: imageResponse.imageUrl,
+                nodeIndex: latestNodeIndex,
               }));
             } catch (err) {
               console.error("[Story] Image generation failed:", err);
@@ -290,6 +321,7 @@ export default function StoryScreen() {
               setPendingAssets((prev) => ({
                 ...prev,
                 narrationUrl: narrationResponse.audioUrl,
+                nodeIndex: latestNodeIndex,
               }));
             } catch (err) {
               console.error("[Story] Narration generation failed:", err);
@@ -352,6 +384,9 @@ export default function StoryScreen() {
 
         setSteps([{ story, choice: null }]);
         setCurrentNarrationIndex(0);
+        setAutoPlayNodeIndex(0);
+        // Keep loader visible until assets are generated
+        setShowLoader(true);
       };
 
       initializeStory();
@@ -423,6 +458,7 @@ export default function StoryScreen() {
 
         setSteps((prev) => [...prev, { story, choice: choiceMade }]);
         setCurrentNarrationIndex(steps.length);
+        setAutoPlayNodeIndex(steps.length);
       };
 
       saveNewNode();
@@ -459,6 +495,30 @@ export default function StoryScreen() {
     if (loadedChoices) {
       setLoadedChoices(null);
     }
+    // Reset narration state for new generation
+    setHasNarratedCurrent(false);
+    // Stop any currently playing narration
+    if (isPlaying) {
+      stop();
+    }
+    // Clear any pending timeouts
+    if (narrationTimeoutRef.current) {
+      clearTimeout(narrationTimeoutRef.current);
+      narrationTimeoutRef.current = null;
+    }
+    // Clear existing story loaded flag to allow asset generation
+    if (isExistingStoryLoaded) {
+      setIsExistingStoryLoaded(false);
+    }
+    // Show loader for new generation
+    setShowLoader(true);
+    // Reset loading states for new generation
+    setLoadingStates({
+      text: false,
+      image: false,
+      narration: false,
+      choices: false,
+    });
     setHistory((prev) => [...prev, choice]);
   };
 
@@ -552,13 +612,37 @@ export default function StoryScreen() {
       >
         {/* Narrative nodes */}
         {steps.map((step, idx) => {
-          // Don't render any story nodes, just show them all
           const isLatestNode = idx === steps.length - 1;
           const nodeData = existingNodeData.get(idx);
+          // Check if we have pending assets for this specific node
+          const hasPendingAssetsForNode =
+            pendingAssets && pendingAssets.nodeIndex === idx;
           const imageUrl =
-            idx === steps.length - 1 && pendingAssets?.imageUrl
+            hasPendingAssetsForNode && pendingAssets.imageUrl
               ? pendingAssets.imageUrl
               : nodeData?.imageUrl;
+          const narrationUrl =
+            hasPendingAssetsForNode && pendingAssets.narrationUrl
+              ? pendingAssets.narrationUrl
+              : nodeData?.narrationUrl;
+
+          // For the latest node being generated, check if all assets are ready
+          const isGeneratingNode = isLatestNode && showLoader;
+          const hasExistingAssets = !!(
+            nodeData?.imageUrl && nodeData?.narrationUrl
+          );
+          const hasPendingAssets = !!(
+            pendingAssets &&
+            pendingAssets.nodeIndex === idx &&
+            pendingAssets.imageUrl &&
+            pendingAssets.narrationUrl
+          );
+          const hasAllAssets = hasExistingAssets || hasPendingAssets;
+
+          // Don't render the latest node if it's still generating and doesn't have all assets
+          if (isGeneratingNode && !hasAllAssets) {
+            return null;
+          }
 
           return (
             <StoryNode
@@ -605,48 +689,136 @@ export default function StoryScreen() {
           );
         })}
         {/* Show loader for new story node being generated */}
-        {showLoader && (
-          <StoryNodeLoader
-            states={loadingStates}
-            onComplete={() => {
-              // Clear any existing timeout
+        {showLoader &&
+          (() => {
+            if (steps.length === 0) {
+              // Show loader even when no steps yet (initial load)
+              return (
+                <StoryNodeLoader
+                  key={`loader-initial`}
+                  states={loadingStates}
+                  onComplete={() => {}}
+                  style={{ marginVertical: 24 }}
+                />
+              );
+            }
+
+            // When generating a new node, we're checking for assets for a node that doesn't exist yet
+            // So we should check if we're waiting for new content (loading is true)
+            const isWaitingForNewContent =
+              loading ||
+              !loadingStates.text ||
+              !loadingStates.image ||
+              !loadingStates.narration ||
+              !loadingStates.choices;
+
+            // Only show loader if we're waiting for new content
+            if (isWaitingForNewContent) {
+              return (
+                <StoryNodeLoader
+                  key={`loader-${steps.length}`}
+                  states={loadingStates}
+                  onComplete={() => {
+                    // Clear any existing timeout
+                    if (narrationTimeoutRef.current) {
+                      clearTimeout(narrationTimeoutRef.current);
+                    }
+                    // Defer state update to avoid React warning
+                    narrationTimeoutRef.current = setTimeout(() => {
+                      setShowLoader(false);
+                      // Update narration index to latest and auto-play
+                      const latestIndex = steps.length - 1;
+                      setCurrentNarrationIndex(latestIndex);
+
+                      const narrationUrlToPlay =
+                        (pendingAssets?.nodeIndex === latestIndex
+                          ? pendingAssets?.narrationUrl
+                          : null) ||
+                        existingNodeData.get(latestIndex)?.narrationUrl;
+                      // Only play narration if this is actually a new node being generated
+                      if (
+                        !ttsLoading &&
+                        !isPlaying &&
+                        !hasNarratedCurrent &&
+                        narrationUrlToPlay &&
+                        latestIndex === steps.length - 1 && // Ensure it's the latest node
+                        autoPlayNodeIndex === latestIndex // Only auto-play for the node we expect
+                      ) {
+                        speak(
+                          steps[latestIndex].story,
+                          "narrator",
+                          narrationUrlToPlay
+                        );
+                        setHasNarratedCurrent(true);
+                        setAutoPlayNodeIndex(null); // Clear after playing
+                      }
+                    }, 500); // Wait for fade animation to complete
+                  }}
+                  style={{ marginVertical: 24 }}
+                />
+              );
+            } else {
+              // All assets ready, hide loader and auto-play narration
               if (narrationTimeoutRef.current) {
                 clearTimeout(narrationTimeoutRef.current);
               }
-              // Defer state update to avoid React warning
               narrationTimeoutRef.current = setTimeout(() => {
                 setShowLoader(false);
-                // Auto-play narration after loader fades
+                const latestIndex = steps.length - 1;
+                setCurrentNarrationIndex(latestIndex);
+
+                const nodeData = existingNodeData.get(latestIndex);
+                const narrationUrlToPlay =
+                  (pendingAssets?.nodeIndex === latestIndex
+                    ? pendingAssets?.narrationUrl
+                    : null) || nodeData?.narrationUrl;
+                // Only play narration if this is actually a new node being generated
                 if (
                   !ttsLoading &&
                   !isPlaying &&
-                  steps.length > 0 &&
-                  currentNarrationIndex !== null &&
-                  !hasNarratedCurrent
+                  !hasNarratedCurrent &&
+                  narrationUrlToPlay &&
+                  latestIndex === steps.length - 1 && // Ensure it's the latest node
+                  autoPlayNodeIndex === latestIndex // Only auto-play for the node we expect
                 ) {
-                  const narrationUrl =
-                    pendingAssets?.narrationUrl ||
-                    existingNodeData.get(currentNarrationIndex)?.narrationUrl;
-                  if (narrationUrl) {
-                    speak(
-                      steps[currentNarrationIndex].story,
-                      "narrator",
-                      narrationUrl
-                    );
-                    setHasNarratedCurrent(true);
-                  }
+                  speak(
+                    steps[latestIndex].story,
+                    "narrator",
+                    narrationUrlToPlay
+                  );
+                  setHasNarratedCurrent(true);
+                  setAutoPlayNodeIndex(null); // Clear after playing
                 }
-              }, 500); // Wait for fade animation to complete
-            }}
-            style={{ marginVertical: 24 }}
-          />
-        )}
+              }, 100);
+              return null;
+            }
+          })()}
         {/* Choices and divider below the latest narrative node */}
         {((choices && choices.length > 0) ||
           (loadedChoices && loadedChoices.length > 0) ||
           loading ||
           error) &&
-          !showLoader && (
+          !(() => {
+            // Hide choices if we're showing loader for the current node
+            if (!showLoader) return false;
+
+            if (steps.length === 0) return true; // Initial load
+
+            const latestIdx = steps.length - 1;
+            const nodeData = existingNodeData.get(latestIdx);
+            const hasExistingAssets = !!(
+              nodeData?.imageUrl && nodeData?.narrationUrl
+            );
+            const hasPendingAssets = !!(
+              pendingAssets &&
+              pendingAssets.nodeIndex === latestIdx &&
+              pendingAssets.imageUrl &&
+              pendingAssets.narrationUrl
+            );
+            const hasAllAssets = hasExistingAssets || hasPendingAssets;
+
+            return !hasAllAssets; // Hide if assets aren't ready
+          })() && (
             <>
               {!loading && error && (
                 <View style={{ marginVertical: 24, alignItems: "center" }}>
