@@ -164,6 +164,23 @@ npm start
    - Press `a` for Android emulator
    - Scan QR code with Expo Go app for physical device
 
+### Testing on Physical Devices with Expo Go
+
+When testing on a physical device using Expo Go, you'll need to use the `--tunnel` flag if your local Supabase instance is running on your development machine:
+
+```bash
+npm start -- --tunnel
+# or
+npx expo start --tunnel
+```
+
+This is necessary because:
+- Your phone needs to access your local Supabase instance (running on localhost:54321)
+- The tunnel creates a secure connection between your phone and your development machine
+- Without it, you'll see "Network request failed" errors when the app tries to connect to Supabase
+
+**Note**: For production apps, you should use a cloud-hosted Supabase instance instead of a local one.
+
 ### Environment Variables
 
 The following API keys are required for Edge Functions:
