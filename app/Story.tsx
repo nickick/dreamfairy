@@ -735,6 +735,7 @@ export default function StoryScreen() {
                 !error &&
                 ((choices && choices.length > 0) ||
                   (loadedChoices && loadedChoices.length > 0)) && (
+                  console.log("[Story] Rendering choices:", { choices, loadedChoices, loading, error }),
                   <>
                     {/* Gradient divider with record button */}
                     <View style={styles.gradientBarContainer}>
@@ -776,7 +777,7 @@ export default function StoryScreen() {
                       />
                     </View>
                     {/* Choices */}
-                    {(choices || loadedChoices || []).map((choice, idx) => (
+                    {(loadedChoices || choices || []).map((choice, idx) => (
                       <TouchableOpacity
                         key={idx}
                         style={[
