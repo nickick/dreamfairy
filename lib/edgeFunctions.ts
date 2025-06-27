@@ -13,6 +13,7 @@ interface StoryGenerationResponse {
 interface SpeechToTextParams {
   audioData: string; // Base64 encoded audio
   storyContext?: string;
+  language?: "en" | "tl" | "zh" | "yue"; // en=English, tl=Tagalog, zh=Mandarin, yue=Cantonese
 }
 
 interface SpeechToTextResponse {

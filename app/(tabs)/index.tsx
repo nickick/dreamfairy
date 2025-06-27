@@ -23,6 +23,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StoriesDrawer } from "@/components/StoriesDrawer";
+import { LanguageDropdown } from "@/components/LanguageDropdown";
 
 const STORY_SEEDS = [
   "A magical forest adventure",
@@ -133,6 +134,7 @@ export default function HomeScreen() {
             </ThemedText>
           </>
         );
+        
 
       case "continueButton":
         return (
@@ -271,6 +273,9 @@ export default function HomeScreen() {
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.background }]}
     >
+      <View style={styles.headerContainer}>
+        <LanguageDropdown />
+      </View>
       <ThemedView style={styles.container}>
         <FlatList
           data={sections}
@@ -303,6 +308,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "transparent",
+  },
+  headerContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    right: 20,
+    zIndex: 1000,
   },
   listContent: {
     padding: 24,

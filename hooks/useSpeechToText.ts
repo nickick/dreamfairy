@@ -9,7 +9,7 @@ interface UseSpeechToTextReturn {
   transcript: string;
   error: string | null;
   startRecording: () => Promise<void>;
-  stopRecording: (storyContext?: string) => Promise<void>;
+  stopRecording: (storyContext?: string, language?: "en" | "tl" | "zh" | "yue") => Promise<void>;
   clearTranscript: () => void;
 }
 
@@ -50,7 +50,7 @@ export function useSpeechToText(): UseSpeechToTextReturn {
     }
   };
 
-  const stopRecording = async (storyContext?: string) => {
+  const stopRecording = async (storyContext?: string, language: "en" | "tl" | "zh" | "yue" = "en") => {
     if (!recordingRef.current) return;
 
     try {
@@ -74,10 +74,11 @@ export function useSpeechToText(): UseSpeechToTextReturn {
       // Clean up the audio file
       await FileSystem.deleteAsync(uri, { idempotent: true });
       
-      // Send to Supabase edge function
+      // Send to Supabase edge function with language parameter
       const response = await EdgeFunctions.speechToText({
         audioData: audioBase64,
         storyContext,
+        language,
       });
       
       setTranscript(response.transcript);

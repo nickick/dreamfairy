@@ -4,6 +4,7 @@ import { ThemedText } from './ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useSpeechToText } from '@/hooks/useSpeechToText';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface VoiceRecorderProps {
   onTranscript: (text: string) => void;
@@ -14,6 +15,7 @@ interface VoiceRecorderProps {
 export function VoiceRecorder({ onTranscript, disabled, storyContext }: VoiceRecorderProps) {
   const { theme, isDark } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
+  const { language } = useLanguage();
   const { 
     isRecording, 
     isTranscribing, 
@@ -33,7 +35,7 @@ export function VoiceRecorder({ onTranscript, disabled, storyContext }: VoiceRec
 
   const handlePress = () => {
     if (isRecording) {
-      stopRecording(storyContext);
+      stopRecording(storyContext, language);
     } else {
       startRecording();
     }

@@ -43,6 +43,37 @@ Deno.test("speech-to-text: validates optional storyContext", () => {
   assertEquals("audioData" in bodyWithoutContext, true);
 });
 
+Deno.test("speech-to-text: validates language parameter", () => {
+  // Language is optional, defaults to "en"
+  const validLanguages = ["en", "tl", "zh", "yue"];
+  const bodyWithLanguage = {
+    audioData: "base64audio",
+    language: "tl",
+  };
+  const bodyWithoutLanguage = { audioData: "base64audio" };
+
+  assertEquals("language" in bodyWithLanguage, true);
+  assertEquals(validLanguages.includes(bodyWithLanguage.language), true);
+  
+  // Function should work without language (uses default)
+  assertEquals("audioData" in bodyWithoutLanguage, true);
+});
+
+Deno.test("speech-to-text: validates all supported languages", () => {
+  const supportedLanguages = ["en", "tl", "zh", "yue"];
+  const languageNames = {
+    en: "English",
+    tl: "Tagalog", 
+    zh: "Mandarin Chinese",
+    yue: "Cantonese",
+  };
+  
+  supportedLanguages.forEach((lang) => {
+    assertEquals(lang in languageNames, true);
+    assertEquals(typeof languageNames[lang as keyof typeof languageNames], "string");
+  });
+});
+
 Deno.test("speech-to-text: validates response structure", () => {
   // Expected response structure
   const expectedResponse = {

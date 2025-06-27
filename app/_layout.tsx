@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 
 function RootLayoutNav() {
   const { user, loading } = useAuth();
@@ -62,12 +63,14 @@ export default function RootLayout() {
 
   return (
     <AuthProvider>
-      <ThemeProvider>
-        <NavigationThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <RootLayoutNav />
-          <StatusBar style="auto" />
-        </NavigationThemeProvider>
-      </ThemeProvider>
+      <LanguageProvider>
+        <ThemeProvider>
+          <NavigationThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <RootLayoutNav />
+            <StatusBar style="auto" />
+          </NavigationThemeProvider>
+        </ThemeProvider>
+      </LanguageProvider>
     </AuthProvider>
   );
 }

@@ -14,28 +14,47 @@ declare const Deno: {
 interface RequestBody {
   audioData: string; // Base64 encoded audio
   storyContext?: string;
+  language?: "en" | "tl" | "zh" | "yue"; // en=English, tl=Tagalog, zh=Mandarin, yue=Cantonese
 }
+
+// Language code mapping for Whisper API
+const LANGUAGE_CODES: Record<string, string> = {
+  en: "en",    // English
+  tl: "tl",    // Tagalog/Filipino
+  zh: "zh",    // Mandarin Chinese
+  yue: "zh",   // Cantonese (Whisper doesn't have specific Cantonese, use Chinese)
+};
 
 async function correctTranscriptWithContext(
   transcript: string,
   storyContext: string,
+  language: string,
   openai: any
 ): Promise<string> {
   try {
+    const languageNames: Record<string, string> = {
+      en: "English",
+      tl: "Tagalog",
+      zh: "Mandarin Chinese",
+      yue: "Cantonese",
+    };
+
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
         {
           role: "system",
           content: `You are a helpful assistant that corrects speech-to-text transcriptions based on story context.
+          The user spoke in ${languageNames[language] || "English"}.
           Given the story context and a transcribed user choice, correct any misheard words to match the story's vocabulary and context.
           For example, if the story mentions "seed" and the transcription says "sea", correct it to "seed".
           Only make corrections that improve accuracy based on context. Keep the user's intent intact.
+          Preserve the original language of the transcript.
           Return ONLY the corrected text, nothing else.`,
         },
         {
           role: "user",
-          content: `Story context: "${storyContext}"\n\nTranscribed user choice: "${transcript}"\n\nCorrected choice:`,
+          content: `Story context: "${storyContext}"\n\nTranscribed user choice in ${languageNames[language] || "English"}: "${transcript}"\n\nCorrected choice:`,
         },
       ],
       temperature: 0.3,
@@ -63,7 +82,7 @@ Deno.serve(async (req: Request) => {
       throw new Error("OPENAI_API_KEY not configured");
     }
 
-    const { audioData, storyContext }: RequestBody = await req.json();
+    const { audioData, storyContext, language = "en" }: RequestBody = await req.json();
 
     if (!audioData) {
       return new Response(JSON.stringify({ error: "Audio data is required" }), {
@@ -84,13 +103,23 @@ Deno.serve(async (req: Request) => {
       type: "audio/m4a",
     });
 
+    // Get the appropriate language code for Whisper
+    const whisperLanguage = LANGUAGE_CODES[language] || "en";
+
+    // Create language-specific prompts
+    const languagePrompts: Record<string, string> = {
+      en: "The user is describing what they want to happen next in a story.",
+      tl: "Ang user ay naglalarawan kung ano ang gusto niyang mangyari sa susunod sa kuwento.",
+      zh: "用户正在描述他们希望故事接下来发生什么。",
+      yue: "用戶正在描述佢哋希望故事接下來發生咩。",
+    };
+
     // Transcribe using Whisper
     const transcriptionResponse = await openai.audio.transcriptions.create({
       file: audioFile,
       model: "whisper-1",
-      language: "en",
-      prompt:
-        "The user is describing what they want to happen next in a story.",
+      language: whisperLanguage,
+      prompt: languagePrompts[language] || languagePrompts.en,
     });
 
     let finalTranscript = transcriptionResponse.text.trim();
@@ -100,6 +129,7 @@ Deno.serve(async (req: Request) => {
       finalTranscript = await correctTranscriptWithContext(
         finalTranscript,
         storyContext,
+        language,
         openai
       );
     }
