@@ -22,7 +22,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface StoryStep {
   story: string;
@@ -85,7 +84,6 @@ export default function StoryScreen() {
     loadStoryData,
   } = useStoryPersistence();
   const [loadedData, setLoadedData] = useState<any>(null);
-  const [isLoadingStory, setIsLoadingStory] = useState(false);
   const { generatedAssets } = useAssetGeneration();
 
   // Set theme based on story seed
@@ -115,12 +113,13 @@ export default function StoryScreen() {
     narrationUrl?: string;
   } | null>(null);
   const [loadedChoices, setLoadedChoices] = useState<string[] | null>(null);
+  const generatingAssetsRef = useRef(false);
+  const generatedNodeIndicesRef = useRef<Set<number>>(new Set());
 
   // Load existing story if storyId is provided
   useEffect(() => {
     const loadStory = async () => {
       if (typeof storyId === "string" && !loadedData) {
-        setIsLoadingStory(true);
         const data = await loadStoryData(storyId);
         if (data) {
           setLoadedData(data);
@@ -152,7 +151,6 @@ export default function StoryScreen() {
             }, 300);
           }
         }
-        setIsLoadingStory(false);
       }
     };
     loadStory();
@@ -176,6 +174,8 @@ export default function StoryScreen() {
       setShowLoader(true);
       setHasNarratedCurrent(false);
       setPendingAssets(null);
+      // Clear generated indices for new story generation
+      generatedNodeIndicesRef.current.clear();
       setLoadingStates({
         text: false,
         image: false,
@@ -196,6 +196,7 @@ export default function StoryScreen() {
       error,
       isExistingStoryLoaded,
       showLoader,
+      stepsLength: steps.length,
     });
     // Only trigger for new story content when loader is showing
     if (story && choices && !error && !isExistingStoryLoaded && showLoader) {
@@ -210,10 +211,20 @@ export default function StoryScreen() {
 
       // Start generating image and narration in parallel
       const generateAssets = async () => {
+        console.log("[Story] generateAssets called for nodeIndex:", latestNodeIndex);
+        
+        // Prevent duplicate generation
+        if (generatingAssetsRef.current || generatedNodeIndicesRef.current.has(latestNodeIndex)) {
+          console.log("[Story] Asset generation already in progress or completed for nodeIndex:", latestNodeIndex);
+          return;
+        }
+        generatingAssetsRef.current = true;
+        generatedNodeIndicesRef.current.add(latestNodeIndex);
+        
         // Start both generations in parallel
         const imagePromise = (async () => {
           if (!existingNodeData.get(latestNodeIndex)?.imageUrl) {
-            console.log("[Story] Starting image generation...");
+            console.log("[Story] Starting image generation for nodeIndex:", latestNodeIndex);
             try {
               const { EdgeFunctions } = await import("@/lib/edgeFunctions");
               const imageResponse = await EdgeFunctions.generateImage({
@@ -245,7 +256,7 @@ export default function StoryScreen() {
 
         const narrationPromise = (async () => {
           if (!existingNodeData.get(latestNodeIndex)?.narrationUrl) {
-            console.log("[Story] Starting narration generation...");
+            console.log("[Story] Starting narration generation for nodeIndex:", latestNodeIndex);
             try {
               const { EdgeFunctions } = await import("@/lib/edgeFunctions");
               const narrationResponse = await EdgeFunctions.textToSpeech({
@@ -276,11 +287,14 @@ export default function StoryScreen() {
 
         // Wait for both to complete (but they run in parallel)
         await Promise.all([imagePromise, narrationPromise]);
+        
+        // Reset flag
+        generatingAssetsRef.current = false;
       };
 
       generateAssets();
     }
-  }, [story, choices, steps.length, error, isExistingStoryLoaded, showLoader]);
+  }, [story, choices, steps.length, error, isExistingStoryLoaded, showLoader, existingNodeData]);
 
   // On first load, add the first story node and create story in database
   useEffect(() => {
@@ -566,33 +580,6 @@ export default function StoryScreen() {
                   ? pendingAssets.imageUrl
                   : existingNodeData.get(idx)?.imageUrl
               }
-              onImageGenerated={async (imageUrl) => {
-                // Update the node with the generated image URL
-                if (currentStoryId && nodeIds[idx]) {
-                  await updateNodeAssets(nodeIds[idx], {
-                    image_url: imageUrl,
-                  });
-                }
-
-                // Update local cache to prevent re-generation
-                setExistingNodeData((prev) => {
-                  const newMap = new Map(prev);
-                  const currentData = newMap.get(idx) || {};
-                  newMap.set(idx, {
-                    ...currentData,
-                    imageUrl: imageUrl,
-                  });
-                  return newMap;
-                });
-
-                // Mark image as loaded for the latest node
-                if (idx === steps.length - 1) {
-                  setLoadingStates((prev) => ({
-                    ...prev,
-                    image: true,
-                  }));
-                }
-              }}
             />
           );
         })}

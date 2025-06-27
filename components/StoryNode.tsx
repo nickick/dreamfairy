@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import {
   View,
   StyleSheet,
@@ -8,7 +8,6 @@ import {
   LayoutChangeEvent,
 } from "react-native";
 import { ThemedText } from "./ThemedText";
-import { useGenerateImage } from "@/hooks/useGenerateImage";
 
 interface StoryNodeProps {
   story: string;
@@ -21,7 +20,6 @@ interface StoryNodeProps {
   onSelectNarration: () => void;
   nodeId?: string;
   storyId?: string;
-  onImageGenerated?: (imageUrl: string) => void;
   existingImageUrl?: string;
   t: (key: string, params?: Record<string, string>) => string;
 }
@@ -39,39 +37,14 @@ export const StoryNode = React.forwardRef<View, StoryNodeProps>(
       onSelectNarration,
       nodeId,
       storyId,
-      onImageGenerated,
       existingImageUrl,
       t,
     },
     ref
   ) => {
-    const {
-      imageUrl,
-      loading: imageLoading,
-      error: imageError,
-      regenerate: regenerateImage,
-    } = useGenerateImage(story);
-
-    useEffect(() => {
-      // Only generate image if we don't have an existing one
-      if (story && !existingImageUrl && !imageUrl && !imageLoading) {
-        console.log(
-          "[StoryNode] Triggering image generation from StoryNode component for story:",
-          story.substring(0, 50) + "..."
-        );
-        regenerateImage();
-      }
-    }, [story, existingImageUrl]); // Remove regenerateImage from deps to avoid infinite loop
-
-    // Save image URL when generated
-    useEffect(() => {
-      if (imageUrl && onImageGenerated && !existingImageUrl) {
-        onImageGenerated(imageUrl);
-      }
-    }, [imageUrl, onImageGenerated, existingImageUrl]);
-
-    // Use existing image URL if available, otherwise use generated one
-    const displayImageUrl = existingImageUrl || imageUrl;
+    // Use the image URL passed from parent
+    const displayImageUrl = existingImageUrl;
+    const imageLoading = !displayImageUrl && !existingImageUrl;
 
     return (
       <View ref={ref} style={styles.storyBlock} onLayout={onLayout}>
@@ -128,29 +101,7 @@ export const StoryNode = React.forwardRef<View, StoryNodeProps>(
                 resizeMode="cover"
               />
             )}
-            {imageError && (
-              <TouchableOpacity
-                onPress={regenerateImage}
-                style={[
-                  styles.imageErrorButton,
-                  {
-                    backgroundColor: colors.accent,
-                    borderColor: colors.border,
-                    borderRadius: theme.styles.borderRadius,
-                    borderWidth: theme.styles.borderWidth,
-                  },
-                ]}
-              >
-                <ThemedText
-                  style={[
-                    styles.imageErrorText,
-                    { fontFamily: theme.fonts.button, color: colors.text },
-                  ]}
-                >
-                  Image failed to load. Tap to retry.
-                </ThemedText>
-              </TouchableOpacity>
-            )}
+            {/* Image error handling removed - handled by parent */}
           </View>
           <ThemedText
             style={[
