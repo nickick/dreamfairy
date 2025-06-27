@@ -46,11 +46,6 @@ Dream Fairy is a mobile application that transforms bedtime stories into interac
 - Magic earning through mini-games
 - Transaction history
 
-#### Voice Input
-- Voice-based story choice selection
-- Speech-to-text integration
-- Multi-language support
-
 ### 📋 Planned Features
 
 #### Fairy Tap Mini-Game
@@ -59,11 +54,6 @@ Dream Fairy is a mobile application that transforms bedtime stories into interac
 - Magic currency rewards
 - Tap tracking and animations
 
-#### User Profiles & Authentication
-- User account creation
-- Profile customization
-- Story library/history
-- Progress saving
 
 #### Subscription System
 - Free tier: 50 Magic/month
@@ -87,6 +77,7 @@ Dream Fairy is a mobile application that transforms bedtime stories into interac
 - **Language**: TypeScript
 - **Navigation**: Expo Router (file-based routing)
 - **State Management**: React Hooks & Context API
+- **Backend**: Supabase (Database, Auth, Edge Functions)
 - **Styling**: StyleSheet with theme system
 - **AI Integration**:
   - OpenAI API (story generation)
@@ -98,6 +89,7 @@ Dream Fairy is a mobile application that transforms bedtime stories into interac
   - expo-linear-gradient
   - react-native-gesture-handler
   - react-native-reanimated
+- **Testing**: Deno test runner for Edge Functions
 
 ## 🚀 Setup Instructions
 
@@ -106,12 +98,29 @@ Dream Fairy is a mobile application that transforms bedtime stories into interac
 - npm or yarn
 - Expo CLI
 - iOS Simulator (Mac) or Android Emulator
+- Docker Desktop (for running Supabase locally)
+- Deno (for running Edge Function tests)
+
+### Quick Start
+
+For a quick development setup, run these commands in separate terminals:
+
+```bash
+# Terminal 1: Start Supabase
+npm run supabase:start
+
+# Terminal 2: Start Edge Functions
+npm run supabase:functions
+
+# Terminal 3: Start Expo
+npm start
+```
 
 ### Installation
 
 1. Clone the repository:
 ```bash
-git clone [repository-url]
+git clone https://github.com/nickick/dreamfairy.git
 cd dreamfairy
 ```
 
@@ -120,30 +129,109 @@ cd dreamfairy
 npm install
 ```
 
-3. Create a `.env.local` file in the root directory with your API keys:
-```env
-OPENAI_API_KEY=your_openai_api_key_here
-GETIMG_API_KEY=your_getimg_api_key_here
-ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
-```
+3. Create environment files:
 
-4. Start the development server:
+   a. Create `.env.local` in the root directory for the React Native app:
+   ```env
+   EXPO_PUBLIC_SUPABASE_URL=http://localhost:54321
+   EXPO_PUBLIC_SUPABASE_ANON_KEY=your_local_anon_key
+   ```
+
+   b. Create `supabase/.env.local` for Edge Functions:
+   ```env
+   OPENAI_API_KEY=your_openai_api_key_here
+   GETIMG_API_KEY=your_getimg_api_key_here
+   ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
+   ```
+
+4. Start Supabase locally:
 ```bash
-npx expo start
+npm run supabase:start
 ```
 
-5. Run on your preferred platform:
+5. Run Edge Functions (in a new terminal):
+```bash
+npm run supabase:functions
+```
+
+6. Start the Expo development server (in a new terminal):
+```bash
+npm start
+```
+
+7. Run on your preferred platform:
    - Press `i` for iOS simulator
    - Press `a` for Android emulator
    - Scan QR code with Expo Go app for physical device
 
 ### Environment Variables
 
-The following API keys are required:
+The following API keys are required for Edge Functions:
 
 - **OPENAI_API_KEY**: For story generation (get from [OpenAI Platform](https://platform.openai.com))
 - **GETIMG_API_KEY**: For image generation (get from [GetImg.ai](https://getimg.ai))
 - **ELEVENLABS_API_KEY**: For voice synthesis (get from [ElevenLabs](https://elevenlabs.io))
+
+For the React Native app:
+
+- **EXPO_PUBLIC_SUPABASE_URL**: Your Supabase project URL (use `http://localhost:54321` for local development)
+- **EXPO_PUBLIC_SUPABASE_ANON_KEY**: Your Supabase anonymous key (find in Supabase dashboard or local output)
+
+### Running Tests
+
+To run the Edge Function tests:
+
+```bash
+npm run test:functions
+```
+
+This will execute all tests using Deno, validating:
+- Authentication requirements for all Edge Functions
+- Input parameter validation
+- Response structure validation
+- 21 tests total covering all Edge Functions
+
+## 🔧 Supabase Edge Functions
+
+The app uses Supabase Edge Functions to securely handle AI API calls. All functions require authentication.
+
+### Available Endpoints
+
+1. **Generate Story** (`/functions/v1/generate-story`)
+   - Creates story content based on seed and history
+   - Request: `{ seed: string, history: string[] }`
+   - Response: `{ story: string, choices: string[] }`
+
+2. **Generate Image** (`/functions/v1/generate-image`)
+   - Creates illustrations for story nodes
+   - Request: `{ prompt: string, width?: number, height?: number }`
+   - Response: `{ imageUrl: string }`
+
+3. **Text to Speech** (`/functions/v1/text-to-speech`)
+   - Converts story text to audio narration
+   - Request: `{ text: string, voiceType?: "narrator" | "child" | "fairy" }`
+   - Response: `{ audioData: string, audioUrl: string }`
+
+4. **Speech to Text** (`/functions/v1/speech-to-text`)
+   - Transcribes user voice input
+   - Request: `{ audioData: string, storyContext?: string }`
+   - Response: `{ transcript: string }`
+
+### Testing Edge Functions
+
+Run the automated test suite:
+```bash
+npm run test:functions
+```
+
+Test functions manually with curl (replace YOUR_ANON_KEY):
+```bash
+# Test story generation
+curl -X POST http://localhost:54321/functions/v1/generate-story \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_ANON_KEY" \
+  -d '{"seed": "A magical garden"}'
+```
 
 ## 📈 Current Progress
 
@@ -157,15 +245,22 @@ The following API keys are required:
 - Story choice selection and branching
 - Auto-scrolling to latest content
 - Custom fonts and styling
+- Supabase backend integration
+- Database schema for users, stories, and transactions
+- Edge Functions for AI services (story, image, speech)
+- Authentication system with secure API access
+- Story persistence in database (cloud storage)
+- Automated test suite for Edge Functions
+- Local development environment with Docker
+- User authentication and profiles
+- Voice input for story choices (speech-to-text integration)
 
 ### In Development 🚧
 - Magic currency system backend
-- User authentication
 - Mini-game implementation
-- Voice input for story choices
 
 ### Upcoming 📋
-- Cloud storage for stories
+- Multi-language support for voice input
 - Subscription tiers
 - Video generation
 - Social features
@@ -197,6 +292,23 @@ hooks/
 constants/
 ├── Colors.ts            # Color definitions
 └── Themes.ts           # Theme configurations
+
+supabase/
+├── functions/           # Edge Functions
+│   ├── _shared/        # Shared utilities
+│   │   └── auth.ts     # Authentication helper
+│   ├── generate-story/ # Story generation endpoint
+│   ├── generate-image/ # Image generation endpoint
+│   ├── speech-to-text/ # Audio transcription endpoint
+│   ├── text-to-speech/ # Voice synthesis endpoint
+│   └── tests/          # Test suite
+│       ├── auth.test.ts
+│       ├── generate-story.test.ts
+│       ├── generate-image.test.ts
+│       ├── speech-to-text.test.ts
+│       └── text-to-speech.test.ts
+├── migrations/         # Database schema
+└── config.toml        # Supabase configuration
 ```
 
 ## 🤝 Contributing
