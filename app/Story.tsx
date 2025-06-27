@@ -1,29 +1,26 @@
+import { NarrationNavbar } from "@/components/NarrationNavbar";
+import { LoadingStates, StoryNodeLoader } from "@/components/StoryNodeLoader";
+import { StoryNode } from "@/components/StoryNode";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
-import { NarrationNavbar } from "@/components/NarrationNavbar";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { storyThemeMap } from "@/constants/Themes";
+import { useTranslation } from "@/constants/translations";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useGenerateImage } from "@/hooks/useGenerateImage";
 import { useGenerateStory } from "@/hooks/useGenerateStory";
-import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { useStoryPersistence } from "@/hooks/useStoryPersistence";
+import { useTextToSpeech } from "@/hooks/useTextToSpeech";
+import { useAssetGeneration } from "@/hooks/useAssetGeneration";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
-import { useTranslation } from "@/constants/translations";
 import {
-  ActivityIndicator,
   Animated,
   Easing,
-  LayoutChangeEvent,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
-  useColorScheme,
-  Platform,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -35,185 +32,30 @@ interface StoryStep {
 const CHOICES_PANE_HEIGHT = 300;
 const CHOICES_PANE_HEIGHT_LOADING = 64;
 
-const StoryNode = React.forwardRef<
-  View,
-  {
-    story: string;
-    choice: string | null;
-    isDark: boolean;
-    colors: any;
-    theme: any;
-    onLayout?: (e: LayoutChangeEvent) => void;
-    isCurrentNarration: boolean;
-    onSelectNarration: () => void;
-    nodeId?: string;
-    storyId?: string;
-    onImageGenerated?: (imageUrl: string) => void;
-    existingImageUrl?: string;
-    t: (key: string, params?: Record<string, string>) => string;
-  }
->(({ story, choice, isDark, colors, theme, onLayout, isCurrentNarration, onSelectNarration, nodeId, storyId, onImageGenerated, existingImageUrl, t }, _ref) => {
-  const {
-    imageUrl,
-    loading: imageLoading,
-    error: imageError,
-    regenerate: regenerateImage,
-  } = useGenerateImage(story);
-
-  useEffect(() => {
-    // Only generate image if we don't have an existing one
-    if (story && !existingImageUrl && !imageUrl && !imageLoading) {
-      regenerateImage();
-    }
-  }, [story, existingImageUrl]); // Remove regenerateImage from deps to avoid infinite loop
-
-  // Save image URL when generated
-  useEffect(() => {
-    if (imageUrl && onImageGenerated && !existingImageUrl) {
-      onImageGenerated(imageUrl);
-    }
-  }, [imageUrl, onImageGenerated, existingImageUrl]);
-
-  // Use existing image URL if available, otherwise use generated one
-  const displayImageUrl = existingImageUrl || imageUrl;
-
-  return (
-    <View style={styles.storyBlock} onLayout={onLayout}>
-      {choice && (
-        <ThemedText
-          style={[
-            styles.choiceLabel,
-            {
-              fontFamily: theme.fonts.body,
-              color: isDark ? colors.text : colors.text,
-            },
-          ]}
-        >
-          You chose: {choice}
-        </ThemedText>
-      )}
-      {/* Story card container with shadow */}
-      <View
-        style={[
-          styles.storyCardContainer,
-          {
-            shadowColor: colors.border,
-            shadowOffset: theme.styles.shadowOffset,
-            shadowOpacity: theme.styles.shadowOpacity,
-            shadowRadius: theme.styles.shadowRadius,
-            borderRadius: theme.styles.borderRadius,
-          },
-        ]}
-      >
-        {/* Image above the story text */}
-        <View style={styles.imageContainer}>
-          {imageLoading && !existingImageUrl && (
-            <ActivityIndicator
-              size="large"
-              color={colors.text}
-              style={{ marginVertical: 16 }}
-            />
-          )}
-          {displayImageUrl && (
-            <Animated.Image
-              source={{ uri: displayImageUrl }}
-              style={[
-                styles.storyImage,
-                {
-                  borderColor: colors.border,
-                  borderTopLeftRadius: theme.styles.borderRadius,
-                  borderTopRightRadius: theme.styles.borderRadius,
-                  borderBottomLeftRadius: 0,
-                  borderBottomRightRadius: 0,
-                  borderWidth: theme.styles.borderWidth,
-                  borderBottomWidth: 0,
-                },
-              ]}
-              resizeMode="cover"
-            />
-          )}
-          {imageError && (
-            <TouchableOpacity
-              onPress={regenerateImage}
-              style={[
-                styles.imageErrorButton,
-                {
-                  backgroundColor: colors.accent,
-                  borderColor: colors.border,
-                  borderRadius: theme.styles.borderRadius,
-                  borderWidth: theme.styles.borderWidth,
-                },
-              ]}
-            >
-              <ThemedText
-                style={[
-                  styles.imageErrorText,
-                  { fontFamily: theme.fonts.button, color: colors.text },
-                ]}
-              >
-                Image failed to load. Tap to retry.
-              </ThemedText>
-            </TouchableOpacity>
-          )}
-        </View>
-        <ThemedText
-          style={[
-            styles.storyText,
-            {
-              backgroundColor: colors.primary,
-              color: colors.text,
-              borderColor: colors.border,
-              fontFamily: theme.fonts.body,
-              borderTopLeftRadius: displayImageUrl ? 0 : theme.styles.borderRadius,
-              borderTopRightRadius: displayImageUrl ? 0 : theme.styles.borderRadius,
-              borderBottomLeftRadius: theme.styles.borderRadius,
-              borderBottomRightRadius: theme.styles.borderRadius,
-              borderWidth: theme.styles.borderWidth,
-              borderTopWidth: displayImageUrl ? theme.styles.borderWidth : theme.styles.borderWidth,
-            },
-          ]}
-        >
-          {story}
-        </ThemedText>
-      </View>
-      <TouchableOpacity
-        onPress={onSelectNarration}
-        style={[
-          styles.selectNarrationButton,
-          {
-            backgroundColor: isCurrentNarration ? colors.accent : colors.secondary,
-            borderColor: colors.border,
-            borderWidth: theme.styles.borderWidth,
-            borderRadius: theme.styles.borderRadius,
-          }
-        ]}
-      >
-        <ThemedText
-          style={[
-            styles.selectNarrationText,
-            { 
-              fontFamily: theme.fonts.button, 
-              color: isCurrentNarration ? (isDark ? '#000' : '#000') : colors.text 
-            }
-          ]}
-        >
-          {isCurrentNarration ? t('currentlyPlaying') : t('playThisPart')}
-        </ThemedText>
-      </TouchableOpacity>
-    </View>
-  );
-});
 
 export default function StoryScreen() {
   const { seed, storyId } = useLocalSearchParams();
+  console.log("[Story] Component render - seed:", seed, "storyId:", storyId);
+
   const [steps, setSteps] = useState<StoryStep[]>([]); // Each step: {story, choice}
   const [history, setHistory] = useState<string[]>([]); // Just the choices for the hook
-  const [currentNarrationIndex, setCurrentNarrationIndex] = useState<number | null>(null);
+  const [currentNarrationIndex, setCurrentNarrationIndex] = useState<
+    number | null
+  >(null);
   const { t } = useTranslation();
   const [currentStoryId, setCurrentStoryId] = useState<string | null>(null);
   const [nodeIds, setNodeIds] = useState<string[]>([]);
   const [skipInitialGeneration, setSkipInitialGeneration] = useState(!!storyId);
-  
+  const [loadingStates, setLoadingStates] = useState<LoadingStates>({
+    text: false,
+    image: false,
+    narration: false,
+    choices: false,
+  });
+  const [showLoader, setShowLoader] = useState(false);
+  const [hasNarratedCurrent, setHasNarratedCurrent] = useState(false);
+  const narrationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const { story, choices, loading, error, regenerate } = useGenerateStory(
     typeof seed === "string" && !skipInitialGeneration ? seed : undefined,
     history
@@ -223,20 +65,28 @@ export default function StoryScreen() {
     new Animated.Value(CHOICES_PANE_HEIGHT)
   );
   const prevLoading = useRef(false);
-  const colorScheme = useColorScheme();
   const { theme, isDark, setThemeName } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const latestY = useRef<number | null>(null);
-  const { speak, pause, resume, stop, isLoading: ttsLoading, isPlaying, progress, error: ttsError, volume, setVolume, getLastAudioUrl } = useTextToSpeech();
-  const { 
-    createStory, 
-    saveStoryNode, 
-    saveChoices, 
-    getStoryWithNodes,
-    loading: persistenceLoading,
-    error: persistenceError 
+  const {
+    speak,
+    pause,
+    stop,
+    isLoading: ttsLoading,
+    isPlaying,
+    progress,
+    error: ttsError,
+    getLastAudioUrl,
+  } = useTextToSpeech();
+  const {
+    createStory,
+    saveNode,
+    updateNodeAssets,
+    loadStoryData,
   } = useStoryPersistence();
-  const insets = useSafeAreaInsets();
+  const [loadedData, setLoadedData] = useState<any>(null);
+  const [isLoadingStory, setIsLoadingStory] = useState(false);
+  const { generatedAssets } = useAssetGeneration();
 
   // Set theme based on story seed
   useEffect(() => {
@@ -245,50 +95,52 @@ export default function StoryScreen() {
     }
   }, [seed, setThemeName]);
 
+  // Log unmount and cleanup
+  useEffect(() => {
+    return () => {
+      console.log("[Story] Component unmounting!");
+      if (narrationTimeoutRef.current) {
+        clearTimeout(narrationTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Track if we've loaded an existing story
   const [isExistingStoryLoaded, setIsExistingStoryLoaded] = useState(false);
-  const [existingNodeData, setExistingNodeData] = useState<Map<number, any>>(new Map());
+  const [existingNodeData, setExistingNodeData] = useState<Map<number, any>>(
+    new Map()
+  );
+  const [pendingAssets, setPendingAssets] = useState<{
+    imageUrl?: string;
+    narrationUrl?: string;
+  } | null>(null);
+  const [loadedChoices, setLoadedChoices] = useState<string[] | null>(null);
 
   // Load existing story if storyId is provided
   useEffect(() => {
-    const loadExistingStory = async () => {
-      if (typeof storyId === "string") {
-        const storyData = await getStoryWithNodes(storyId);
-        if (storyData) {
-          setCurrentStoryId(storyId);
-          const loadedSteps: StoryStep[] = [];
-          const loadedHistory: string[] = [];
-          const loadedNodeIds: string[] = [];
-          const nodeDataMap = new Map();
-          
-          storyData.nodes.forEach((node) => {
-            loadedSteps.push({
-              story: node.story_text,
-              choice: node.choice_made
-            });
-            if (node.choice_made) {
-              loadedHistory.push(node.choice_made);
-            }
-            loadedNodeIds.push(node.id);
-            // Store additional node data (like image URLs)
-            nodeDataMap.set(node.node_index, {
-              imageUrl: node.image_url,
-              narrationUrl: node.narration_url
-            });
-          });
-          
-          setSteps(loadedSteps);
-          setHistory(loadedHistory);
-          setNodeIds(loadedNodeIds);
-          setExistingNodeData(nodeDataMap);
+    const loadStory = async () => {
+      if (typeof storyId === "string" && !loadedData) {
+        setIsLoadingStory(true);
+        const data = await loadStoryData(storyId);
+        if (data) {
+          setLoadedData(data);
+          setCurrentStoryId(data.storyId);
+          setSteps(data.steps);
+          setHistory(data.history);
+          setNodeIds(data.nodeIds);
+          setExistingNodeData(data.nodeDataMap);
+          setLoadedChoices(data.choices);
           setIsExistingStoryLoaded(true);
-          // Allow generation for new choices after loading
-          setSkipInitialGeneration(false);
-          
+
+          // If we're loading an existing story with no seed (from profile), keep generation disabled
+          if (!seed) {
+            setSkipInitialGeneration(true);
+          }
+
           // Set the latest story node as the current narration
-          if (loadedSteps.length > 0) {
-            setCurrentNarrationIndex(loadedSteps.length - 1);
-            
+          if (data.steps.length > 0) {
+            setCurrentNarrationIndex(data.steps.length - 1);
+
             // Scroll to the latest node after a brief delay to ensure layout is complete
             setTimeout(() => {
               if (scrollViewRef.current && latestY.current !== null) {
@@ -300,11 +152,135 @@ export default function StoryScreen() {
             }, 300);
           }
         }
+        setIsLoadingStory(false);
       }
     };
-    
-    loadExistingStory();
-  }, [storyId, getStoryWithNodes]);
+    loadStory();
+  }, [storyId, loadStoryData, seed]);
+
+  // Track when loading starts
+  useEffect(() => {
+    console.log(
+      "[Story] Loading state changed:",
+      loading,
+      "Previous:",
+      prevLoading.current,
+      "showLoader:",
+      showLoader,
+      "isExistingStoryLoaded:",
+      isExistingStoryLoaded
+    );
+    // Only show loader for new story generation, not when loading existing stories
+    if (loading && !prevLoading.current && !isExistingStoryLoaded) {
+      console.log("[Story] Starting loader");
+      setShowLoader(true);
+      setHasNarratedCurrent(false);
+      setPendingAssets(null);
+      setLoadingStates({
+        text: false,
+        image: false,
+        narration: false,
+        choices: false,
+      });
+    } else if (!loading && prevLoading.current) {
+      console.log("[Story] Loading finished");
+    }
+    prevLoading.current = loading;
+  }, [loading, showLoader, isExistingStoryLoaded]);
+
+  // Track when story and choices are loaded and trigger edge functions
+  useEffect(() => {
+    console.log("[Story] Story/choices update:", {
+      story: !!story,
+      choices: !!choices,
+      error,
+      isExistingStoryLoaded,
+      showLoader,
+    });
+    // Only trigger for new story content when loader is showing
+    if (story && choices && !error && !isExistingStoryLoaded && showLoader) {
+      // Mark text and choices as loaded immediately
+      setLoadingStates((prev) => ({
+        ...prev,
+        text: true,
+        choices: true,
+      }));
+
+      const latestNodeIndex = steps.length;
+
+      // Start generating image and narration in parallel
+      const generateAssets = async () => {
+        // Start both generations in parallel
+        const imagePromise = (async () => {
+          if (!existingNodeData.get(latestNodeIndex)?.imageUrl) {
+            console.log("[Story] Starting image generation...");
+            try {
+              const { EdgeFunctions } = await import("@/lib/edgeFunctions");
+              const imageResponse = await EdgeFunctions.generateImage({
+                prompt: story,
+                width: 512,
+                height: 512,
+              });
+              console.log("[Story] Image generation complete");
+              // Store the image URL for later use
+              setPendingAssets((prev) => ({
+                ...prev,
+                imageUrl: imageResponse.imageUrl,
+              }));
+            } catch (err) {
+              console.error("[Story] Image generation failed:", err);
+            } finally {
+              setLoadingStates((prev) => ({
+                ...prev,
+                image: true,
+              }));
+            }
+          } else {
+            setLoadingStates((prev) => ({
+              ...prev,
+              image: true,
+            }));
+          }
+        })();
+
+        const narrationPromise = (async () => {
+          if (!existingNodeData.get(latestNodeIndex)?.narrationUrl) {
+            console.log("[Story] Starting narration generation...");
+            try {
+              const { EdgeFunctions } = await import("@/lib/edgeFunctions");
+              const narrationResponse = await EdgeFunctions.textToSpeech({
+                text: story,
+                voiceType: "narrator",
+              });
+              console.log("[Story] Narration generation complete");
+              // Store the narration URL for later use
+              setPendingAssets((prev) => ({
+                ...prev,
+                narrationUrl: narrationResponse.audioUrl,
+              }));
+            } catch (err) {
+              console.error("[Story] Narration generation failed:", err);
+            } finally {
+              setLoadingStates((prev) => ({
+                ...prev,
+                narration: true,
+              }));
+            }
+          } else {
+            setLoadingStates((prev) => ({
+              ...prev,
+              narration: true,
+            }));
+          }
+        })();
+
+        // Wait for both to complete (but they run in parallel)
+        await Promise.all([imagePromise, narrationPromise]);
+      };
+
+      generateAssets();
+    }
+  }, [story, choices, steps.length, error, isExistingStoryLoaded, showLoader]);
 
   // On first load, add the first story node and create story in database
   useEffect(() => {
@@ -312,7 +288,7 @@ export default function StoryScreen() {
     if (isExistingStoryLoaded || storyId) {
       return;
     }
-    
+
     if (story && steps.length === 0 && !loading && !error && !currentStoryId) {
       const initializeStory = async () => {
         // Create story in database
@@ -320,35 +296,26 @@ export default function StoryScreen() {
           const newStory = await createStory(seed);
           if (newStory) {
             setCurrentStoryId(newStory.id);
-            
+
             // Save first node
-            const node = await saveStoryNode(
-              newStory.id,
-              0,
+            const node = await saveNode({
+              currentStoryId: newStory.id,
+              nodeIndex: 0,
               story,
-              null
-            );
-            
+              choiceMade: null,
+              choices,
+            });
+
             if (node) {
               setNodeIds([node.id]);
-              
-              // Save initial choices if any
-              if (choices && choices.length > 0) {
-                await saveChoices(node.id, choices);
-              }
             }
           }
         }
-        
+
         setSteps([{ story, choice: null }]);
-        
-        // Auto-narrate first story and set current narration index
-        if (!ttsLoading && !isPlaying) {
-          speak(story, 'narrator');
-          setCurrentNarrationIndex(0);
-        }
+        setCurrentNarrationIndex(0);
       };
-      
+
       initializeStory();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -356,11 +323,12 @@ export default function StoryScreen() {
 
   // When a new choice is made, add the new story node and save to database
   useEffect(() => {
-    // Skip if this is the first render after loading an existing story
-    if (isExistingStoryLoaded && history.length < steps.length) {
+    // Skip if this is just the existing story being loaded
+    if (isExistingStoryLoaded && steps.length === history.length + 1) {
+      setIsExistingStoryLoaded(false); // Reset flag after initial load
       return;
     }
-    
+
     if (
       story &&
       steps.length > 0 &&
@@ -373,36 +341,56 @@ export default function StoryScreen() {
       const saveNewNode = async () => {
         const nodeIndex = steps.length;
         const choiceMade = history[history.length - 1];
-        
-        // Save the new node
-        const node = await saveStoryNode(
+
+        // Save the new node with assets if available
+        const node = await saveNode({
           currentStoryId,
           nodeIndex,
           story,
-          choiceMade
-        );
-        
+          choiceMade,
+          choices,
+          imageUrl: pendingAssets?.imageUrl || generatedAssets?.imageUrl,
+          narrationUrl: pendingAssets?.narrationUrl || generatedAssets?.narrationUrl,
+        });
+
         if (node) {
-          setNodeIds(prev => [...prev, node.id]);
-          
-          // Save choices for this node if any
-          if (choices && choices.length > 0) {
-            await saveChoices(node.id, choices);
+          setNodeIds((prev) => [...prev, node.id]);
+
+          // If we have pending assets, save them to the database
+          if (pendingAssets) {
+            const { supabase } = await import("@/lib/supabase");
+            const updates: any = {};
+            if (pendingAssets.imageUrl)
+              updates.image_url = pendingAssets.imageUrl;
+            if (pendingAssets.narrationUrl)
+              updates.narration_url = pendingAssets.narrationUrl;
+
+            if (Object.keys(updates).length > 0) {
+              await supabase
+                .from("story_nodes")
+                .update(updates)
+                .eq("id", node.id);
+
+              // Update local cache
+              setExistingNodeData((prev) => {
+                const newMap = new Map(prev);
+                newMap.set(nodeIndex, {
+                  imageUrl: pendingAssets.imageUrl,
+                  narrationUrl: pendingAssets.narrationUrl,
+                });
+                return newMap;
+              });
+            }
+
+            // Clear pending assets
+            setPendingAssets(null);
           }
         }
-        
-        setSteps((prev) => [
-          ...prev,
-          { story, choice: choiceMade },
-        ]);
-        
-        // Auto-narrate new story content and update current narration index
-        if (!ttsLoading && !isPlaying) {
-          speak(story, 'narrator');
-          setCurrentNarrationIndex(steps.length);
-        }
+
+        setSteps((prev) => [...prev, { story, choice: choiceMade }]);
+        setCurrentNarrationIndex(steps.length);
       };
-      
+
       saveNewNode();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -429,55 +417,66 @@ export default function StoryScreen() {
   }, [loading, choicesPanelHeight]);
 
   const handleChoice = (choice: string) => {
+    // When user makes a choice, allow generation
+    if (skipInitialGeneration) {
+      setSkipInitialGeneration(false);
+    }
+    // Clear loaded choices since user is making a new choice
+    if (loadedChoices) {
+      setLoadedChoices(null);
+    }
     setHistory((prev) => [...prev, choice]);
   };
 
   const handleNarrationPlay = async () => {
     if (currentNarrationIndex !== null && steps[currentNarrationIndex]) {
       // Check if we have an existing narration URL for this node
-      const existingNarrationUrl = existingNodeData.get(currentNarrationIndex)?.narrationUrl;
-      await speak(steps[currentNarrationIndex].story, 'narrator', existingNarrationUrl);
-      
+      const existingNarrationUrl = existingNodeData.get(
+        currentNarrationIndex
+      )?.narrationUrl;
+      await speak(
+        steps[currentNarrationIndex].story,
+        "narrator",
+        existingNarrationUrl
+      );
+
       // If we generated a new narration, save it to the database
       if (!existingNarrationUrl) {
         const newAudioUrl = getLastAudioUrl();
         if (newAudioUrl && currentStoryId && nodeIds[currentNarrationIndex]) {
-          const { supabase } = await import('@/lib/supabase');
-          await supabase
-            .from('story_nodes')
-            .update({ narration_url: newAudioUrl })
-            .eq('id', nodeIds[currentNarrationIndex]);
-          
+          await updateNodeAssets(nodeIds[currentNarrationIndex], {
+            narration_url: newAudioUrl,
+          });
+
           // Update local data
           const currentData = existingNodeData.get(currentNarrationIndex) || {};
           existingNodeData.set(currentNarrationIndex, {
             ...currentData,
-            narrationUrl: newAudioUrl
+            narrationUrl: newAudioUrl,
           });
         }
       }
     } else if (steps.length > 0) {
       // If no current narration, play the latest story
       const latestIndex = steps.length - 1;
-      const existingNarrationUrl = existingNodeData.get(latestIndex)?.narrationUrl;
-      await speak(steps[latestIndex].story, 'narrator', existingNarrationUrl);
+      const existingNarrationUrl =
+        existingNodeData.get(latestIndex)?.narrationUrl;
+      await speak(steps[latestIndex].story, "narrator", existingNarrationUrl);
       setCurrentNarrationIndex(latestIndex);
-      
+
       // Save if new
       if (!existingNarrationUrl) {
         const newAudioUrl = getLastAudioUrl();
         if (newAudioUrl && currentStoryId && nodeIds[latestIndex]) {
-          const { supabase } = await import('@/lib/supabase');
-          await supabase
-            .from('story_nodes')
-            .update({ narration_url: newAudioUrl })
-            .eq('id', nodeIds[latestIndex]);
-          
+          await updateNodeAssets(nodeIds[latestIndex], {
+            narration_url: newAudioUrl,
+          });
+
           // Update local data
           const currentData = existingNodeData.get(latestIndex) || {};
           existingNodeData.set(latestIndex, {
             ...currentData,
-            narrationUrl: newAudioUrl
+            narrationUrl: newAudioUrl,
           });
         }
       }
@@ -492,7 +491,11 @@ export default function StoryScreen() {
       style={[styles.outerContainer, { backgroundColor: colors.background }]}
     >
       <NarrationNavbar
-        currentStoryText={currentNarrationIndex !== null && steps[currentNarrationIndex] ? steps[currentNarrationIndex].story : ''}
+        currentStoryText={
+          currentNarrationIndex !== null && steps[currentNarrationIndex]
+            ? steps[currentNarrationIndex].story
+            : ""
+        }
         ttsLoading={ttsLoading}
         isPlaying={isPlaying}
         progress={progress}
@@ -505,194 +508,288 @@ export default function StoryScreen() {
       <ScrollView
         ref={scrollViewRef}
         contentContainerStyle={[
-          styles.scrollContainer, 
-          { 
+          styles.scrollContainer,
+          {
             paddingBottom: 48,
-            paddingTop: navbarHeight 
-          }
+            paddingTop: navbarHeight,
+          },
         ]}
         showsVerticalScrollIndicator={false}
       >
         {/* Narrative nodes */}
-        {steps.map((step, idx) => (
-          <StoryNode
-            key={idx}
-            story={step.story}
-            choice={step.choice}
-            isDark={isDark}
-            colors={colors}
-            theme={theme}
-            t={t}
-            onLayout={
-              idx === steps.length - 1
-                ? (e) => (latestY.current = e.nativeEvent.layout.y)
-                : undefined
-            }
-            isCurrentNarration={currentNarrationIndex === idx}
-            onSelectNarration={async () => {
-              setCurrentNarrationIndex(idx);
-              const existingNarrationUrl = existingNodeData.get(idx)?.narrationUrl;
-              await speak(step.story, 'narrator', existingNarrationUrl);
-              
-              // Save if new
-              if (!existingNarrationUrl) {
-                const newAudioUrl = getLastAudioUrl();
-                if (newAudioUrl && currentStoryId && nodeIds[idx]) {
-                  const { supabase } = await import('@/lib/supabase');
-                  await supabase
-                    .from('story_nodes')
-                    .update({ narration_url: newAudioUrl })
-                    .eq('id', nodeIds[idx]);
-                  
-                  // Update local data
-                  const currentData = existingNodeData.get(idx) || {};
-                  existingNodeData.set(idx, {
-                    ...currentData,
-                    narrationUrl: newAudioUrl
+        {steps.map((step, idx) => {
+          // Don't render any story nodes, just show them all
+          const isLatestNode = idx === steps.length - 1;
+
+          return (
+            <StoryNode
+              key={idx}
+              story={step.story}
+              choice={step.choice}
+              isDark={isDark}
+              colors={colors}
+              theme={theme}
+              t={t}
+              onLayout={
+                isLatestNode
+                  ? (e) => (latestY.current = e.nativeEvent.layout.y)
+                  : undefined
+              }
+              isCurrentNarration={currentNarrationIndex === idx}
+              onSelectNarration={async () => {
+                setCurrentNarrationIndex(idx);
+                const existingNarrationUrl =
+                  existingNodeData.get(idx)?.narrationUrl;
+                await speak(step.story, "narrator", existingNarrationUrl);
+
+                // Save if new
+                if (!existingNarrationUrl) {
+                  const newAudioUrl = getLastAudioUrl();
+                  if (newAudioUrl && currentStoryId && nodeIds[idx]) {
+                    await updateNodeAssets(nodeIds[idx], {
+                      narration_url: newAudioUrl,
+                    });
+
+                    // Update local data
+                    const currentData = existingNodeData.get(idx) || {};
+                    existingNodeData.set(idx, {
+                      ...currentData,
+                      narrationUrl: newAudioUrl,
+                    });
+                  }
+                }
+              }}
+              nodeId={nodeIds[idx]}
+              storyId={currentStoryId || undefined}
+              existingImageUrl={
+                idx === steps.length - 1 && pendingAssets?.imageUrl
+                  ? pendingAssets.imageUrl
+                  : existingNodeData.get(idx)?.imageUrl
+              }
+              onImageGenerated={async (imageUrl) => {
+                // Update the node with the generated image URL
+                if (currentStoryId && nodeIds[idx]) {
+                  await updateNodeAssets(nodeIds[idx], {
+                    image_url: imageUrl,
                   });
                 }
+
+                // Update local cache to prevent re-generation
+                setExistingNodeData((prev) => {
+                  const newMap = new Map(prev);
+                  const currentData = newMap.get(idx) || {};
+                  newMap.set(idx, {
+                    ...currentData,
+                    imageUrl: imageUrl,
+                  });
+                  return newMap;
+                });
+
+                // Mark image as loaded for the latest node
+                if (idx === steps.length - 1) {
+                  setLoadingStates((prev) => ({
+                    ...prev,
+                    image: true,
+                  }));
+                }
+              }}
+            />
+          );
+        })}
+        {/* Show loader for new story node being generated */}
+        {showLoader && (
+          <StoryNodeLoader
+            states={loadingStates}
+            onComplete={() => {
+              console.log("[Story] Loader complete, hiding loader");
+              // Clear any existing timeout
+              if (narrationTimeoutRef.current) {
+                clearTimeout(narrationTimeoutRef.current);
               }
+              // Defer state update to avoid React warning
+              narrationTimeoutRef.current = setTimeout(() => {
+                setShowLoader(false);
+                // Auto-play narration after loader fades
+                if (
+                  !ttsLoading &&
+                  !isPlaying &&
+                  steps.length > 0 &&
+                  currentNarrationIndex !== null &&
+                  !hasNarratedCurrent
+                ) {
+                  const narrationUrl =
+                    pendingAssets?.narrationUrl ||
+                    existingNodeData.get(currentNarrationIndex)?.narrationUrl;
+                  if (narrationUrl) {
+                    console.log("[Story] Playing pre-generated narration");
+                    speak(
+                      steps[currentNarrationIndex].story,
+                      "narrator",
+                      narrationUrl
+                    );
+                    setHasNarratedCurrent(true);
+                  }
+                }
+              }, 500); // Wait for fade animation to complete
             }}
-            nodeId={nodeIds[idx]}
-            storyId={currentStoryId || undefined}
-            existingImageUrl={existingNodeData.get(idx)?.imageUrl}
-            onImageGenerated={async (imageUrl) => {
-              // Update the node with the generated image URL
-              if (currentStoryId && nodeIds[idx]) {
-                const { supabase } = await import('@/lib/supabase');
-                await supabase
-                  .from('story_nodes')
-                  .update({ image_url: imageUrl })
-                  .eq('id', nodeIds[idx]);
-              }
-            }}
+            style={{ marginVertical: 24 }}
           />
-        ))}
+        )}
         {/* Choices and divider below the latest narrative node */}
-        {((choices && choices.length > 0) || loading) && (
-          <>
-            {/* Only show spinner when loading, otherwise show divider, choices, and regenerate button */}
-            {loading ? (
-              <ActivityIndicator
-                size="large"
-                color={colors.text}
-                style={{ marginVertical: 24 }}
-              />
-            ) : (
-              <>
-                {/* Gradient divider with record button */}
-                <View style={styles.gradientBarContainer}>
-                  <LinearGradient
-                    colors={
-                      theme.colors[isDark ? "dark" : "light"]
-                        .gradientColors as any
-                    }
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 0 }}
+        {((choices && choices.length > 0) ||
+          (loadedChoices && loadedChoices.length > 0) ||
+          loading ||
+          error) &&
+          !showLoader && (
+            <>
+              {!loading && error && (
+                <View style={{ marginVertical: 24, alignItems: "center" }}>
+                  <ThemedText
+                    style={[styles.errorText, { color: colors.accent }]}
+                  >
+                    {error || "An error occurred"}
+                  </ThemedText>
+                  <TouchableOpacity
+                    onPress={regenerate}
                     style={[
-                      styles.gradientBarInline,
+                      styles.retryButton,
                       {
+                        backgroundColor: colors.accent,
                         borderColor: colors.border,
                         borderRadius: theme.styles.borderRadius,
                         borderWidth: theme.styles.borderWidth,
-                        flex: 1,
                       },
                     ]}
                   >
-                    <ThemedText
+                    <ThemedText style={styles.retryButtonText}>
+                      Try Again
+                    </ThemedText>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {!loading &&
+                !error &&
+                ((choices && choices.length > 0) ||
+                  (loadedChoices && loadedChoices.length > 0)) && (
+                  <>
+                    {/* Gradient divider with record button */}
+                    <View style={styles.gradientBarContainer}>
+                      <LinearGradient
+                        colors={
+                          theme.colors[isDark ? "dark" : "light"]
+                            .gradientColors as any
+                        }
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={[
+                          styles.gradientBarInline,
+                          {
+                            borderColor: colors.border,
+                            borderRadius: theme.styles.borderRadius,
+                            borderWidth: theme.styles.borderWidth,
+                            flex: 1,
+                          },
+                        ]}
+                      >
+                        <ThemedText
+                          style={[
+                            styles.gradientBarText,
+                            {
+                              fontFamily: theme.fonts.title,
+                              color: isDark ? "#111" : "#111",
+                            },
+                          ]}
+                        >
+                          {t("whatWillYouDoNext")}
+                        </ThemedText>
+                      </LinearGradient>
+                      <VoiceRecorder
+                        onTranscript={(text) => handleChoice(text)}
+                        disabled={loading}
+                        storyContext={
+                          steps.length > 0 ? steps[steps.length - 1].story : ""
+                        }
+                      />
+                    </View>
+                    {/* Choices */}
+                    {(choices || loadedChoices || []).map((choice, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        style={[
+                          styles.choiceButton,
+                          {
+                            backgroundColor: colors.secondary,
+                            borderColor: colors.border,
+                            borderRadius: theme.styles.borderRadius,
+                            borderWidth: theme.styles.borderWidth,
+                            shadowColor: colors.border,
+                            shadowOffset: theme.styles.shadowOffset,
+                            shadowOpacity: theme.styles.shadowOpacity,
+                            shadowRadius: theme.styles.shadowRadius,
+                          },
+                        ]}
+                        onPress={() => handleChoice(choice)}
+                      >
+                        <ThemedText
+                          style={[
+                            styles.choiceButtonText,
+                            {
+                              fontFamily: theme.fonts.button,
+                              color: colors.text,
+                            },
+                          ]}
+                        >
+                          {choice}
+                        </ThemedText>
+                      </TouchableOpacity>
+                    ))}
+                    {/* Divider with 'or' and regenerate button */}
+                    <View style={styles.orDividerContainerInline}>
+                      <ThemedText
+                        style={[
+                          styles.orText,
+                          {
+                            fontFamily: theme.fonts.body,
+                            backgroundColor: colors.background,
+                          },
+                        ]}
+                      >
+                        <>{t("or")}</>
+                      </ThemedText>
+                      <View style={styles.dividerLine} />
+                    </View>
+                    <TouchableOpacity
+                      onPress={regenerate}
                       style={[
-                        styles.gradientBarText,
+                        styles.regenButtonSmall,
                         {
-                          fontFamily: theme.fonts.title,
-                          color: isDark ? "#111" : "#111",
+                          backgroundColor: colors.accent,
+                          borderColor: colors.border,
+                          borderRadius: theme.styles.borderRadius,
+                          borderWidth: theme.styles.borderWidth,
+                          shadowColor: colors.border,
+                          shadowOffset: theme.styles.shadowOffset,
+                          shadowOpacity: theme.styles.shadowOpacity,
+                          shadowRadius: theme.styles.shadowRadius,
                         },
                       ]}
                     >
-                      {t('whatWillYouDoNext')}
-                    </ThemedText>
-                  </LinearGradient>
-                  <VoiceRecorder
-                    onTranscript={(text) => handleChoice(text)}
-                    disabled={loading}
-                    storyContext={steps.length > 0 ? steps[steps.length - 1].story : ''}
-                  />
-                </View>
-                {/* Choices */}
-                {choices.map((choice, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={[
-                      styles.choiceButton,
-                      {
-                        backgroundColor: colors.secondary,
-                        borderColor: colors.border,
-                        borderRadius: theme.styles.borderRadius,
-                        borderWidth: theme.styles.borderWidth,
-                        shadowColor: colors.border,
-                        shadowOffset: theme.styles.shadowOffset,
-                        shadowOpacity: theme.styles.shadowOpacity,
-                        shadowRadius: theme.styles.shadowRadius,
-                      },
-                    ]}
-                    onPress={() => handleChoice(choice)}
-                  >
-                    <ThemedText
-                      style={[
-                        styles.choiceButtonText,
-                        { fontFamily: theme.fonts.button, color: colors.text },
-                      ]}
-                    >
-                      {choice}
-                    </ThemedText>
-                  </TouchableOpacity>
-                ))}
-                {/* Divider with 'or' and regenerate button */}
-                <View style={styles.orDividerContainerInline}>
-                  <ThemedText
-                    style={[
-                      styles.orText,
-                      {
-                        fontFamily: theme.fonts.body,
-                        backgroundColor: colors.background,
-                      },
-                    ]}
-                  >
-                    <>{t('or')}</>
-                  </ThemedText>
-                  <View style={styles.dividerLine} />
-                </View>
-                <TouchableOpacity
-                  onPress={regenerate}
-                  style={[
-                    styles.regenButtonSmall,
-                    {
-                      backgroundColor: colors.accent,
-                      borderColor: colors.border,
-                      borderRadius: theme.styles.borderRadius,
-                      borderWidth: theme.styles.borderWidth,
-                      shadowColor: colors.border,
-                      shadowOffset: theme.styles.shadowOffset,
-                      shadowOpacity: theme.styles.shadowOpacity,
-                      shadowRadius: theme.styles.shadowRadius,
-                    },
-                  ]}
-                >
-                  <ThemedText
-                    style={[
-                      styles.regenButtonSmallText,
-                      {
-                        fontFamily: theme.fonts.button,
-                        color: isDark ? "#000" : "#000",
-                      },
-                    ]}
-                  >
-                    {t('regenerateStory')}
-                  </ThemedText>
-                </TouchableOpacity>
-              </>
-            )}
-          </>
-        )}
+                      <ThemedText
+                        style={[
+                          styles.regenButtonSmallText,
+                          {
+                            fontFamily: theme.fonts.button,
+                            color: isDark ? "#000" : "#000",
+                          },
+                        ]}
+                      >
+                        {t("regenerateStory")}
+                      </ThemedText>
+                    </TouchableOpacity>
+                  </>
+                )}
+            </>
+          )}
       </ScrollView>
     </ThemedView>
   );
@@ -953,7 +1050,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingVertical: 8,
     paddingHorizontal: 16,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
   selectNarrationText: {
     fontSize: 12,

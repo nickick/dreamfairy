@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { useLanguage, LANGUAGES, LanguageCode } from '@/contexts/LanguageContext';
-import { ThemedText } from './ThemedText';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { Ionicons } from '@expo/vector-icons';
 
 export function LanguageDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const { language, setLanguage, languageInfo } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const backgroundColor = useThemeColor({}, 'background');
   const textColor = useThemeColor({}, 'text');
   const tintColor = useThemeColor({}, 'tint');

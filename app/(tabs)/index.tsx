@@ -12,13 +12,11 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useFocusEffect } from "expo-router";
 import React, { useEffect, useState, useCallback } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   Platform,
   SafeAreaView,
   StyleSheet,
   TouchableOpacity,
-  useColorScheme,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -47,7 +45,6 @@ export default function HomeScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const colorScheme = useColorScheme();
   const { theme, setThemeName, isDark } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const { getUserStories } = useStoryPersistence();

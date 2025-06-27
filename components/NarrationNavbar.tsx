@@ -1,6 +1,6 @@
 import { useTheme } from "@/contexts/ThemeContext";
 import React from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NarrationControls } from "./NarrationControls";
 
@@ -29,7 +29,6 @@ export function NarrationNavbar({
 }: NarrationNavbarProps) {
   const { theme, isDark } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
-  const insets = useSafeAreaInsets();
 
   if (!showControls) return null;
 

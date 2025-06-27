@@ -89,10 +89,10 @@ export default function LoginScreen() {
     }
   };
 
-  const onExpire = () => {
-    console.log("hCaptcha expired");
-    setShowCaptcha(false);
-  };
+  // const onExpire = () => {
+  //   console.log("hCaptcha expired");
+  //   setShowCaptcha(false);
+  // };
 
   return (
     <ThemedView
@@ -302,7 +302,7 @@ export default function LoginScreen() {
                   },
                 ]}
               >
-                We've sent a magic link to {email}
+                We&apos;ve sent a magic link to {email}
               </ThemedText>
               <ThemedText
                 style={[
@@ -376,7 +376,7 @@ export default function LoginScreen() {
                 },
               ]}
             >
-              Verify you're human
+              Verify you&apos;re human
             </ThemedText>
 
             {captchaLoading && (
@@ -812,9 +812,6 @@ const styles = StyleSheet.create({
   },
   debugText: {
     fontSize: 14,
-  },
-  modalContainer: {
-    flex: 1,
   },
   modalHeader: {
     flexDirection: 'row',

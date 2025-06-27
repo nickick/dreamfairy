@@ -265,6 +265,146 @@ export function useStoryPersistence() {
     }
   };
 
+  // Update node assets (image/narration URLs)
+  const updateNodeAssets = useCallback(
+    async (nodeId: string, updates: { image_url?: string; narration_url?: string }) => {
+      try {
+        const { error } = await supabase
+          .from("story_nodes")
+          .update(updates)
+          .eq("id", nodeId);
+
+        if (error) throw error;
+        return true;
+      } catch (error) {
+        console.error("[useStoryPersistence] Error updating node assets:", error);
+        return false;
+      }
+    },
+    []
+  );
+
+  // Save node with choices (combines saveStoryNode and saveChoices)
+  const saveNode = useCallback(
+    async ({
+      currentStoryId,
+      nodeIndex,
+      story,
+      choiceMade,
+      choices,
+      imageUrl,
+      narrationUrl,
+    }: {
+      currentStoryId: string;
+      nodeIndex: number;
+      story: string;
+      choiceMade: string | null;
+      choices?: string[];
+      imageUrl?: string;
+      narrationUrl?: string;
+    }) => {
+      try {
+        // Save the node
+        const node = await saveStoryNode(
+          currentStoryId,
+          nodeIndex,
+          story,
+          choiceMade,
+          imageUrl,
+          narrationUrl
+        );
+
+        if (node) {
+          // Save choices for this node if any
+          if (choices && choices.length > 0) {
+            await saveChoices(node.id, choices);
+          }
+
+          return node;
+        }
+      } catch (error) {
+        console.error("[useStoryPersistence] Error saving node:", error);
+      }
+      return null;
+    },
+    [saveStoryNode, saveChoices]
+  );
+
+  // Load story data (for useStoryLoader functionality)
+  const loadStoryData = useCallback(
+    async (storyId: string) => {
+      if (!storyId) return null;
+
+      try {
+        const storyData = await getStoryWithNodes(storyId);
+        if (storyData) {
+          const loadedSteps: Array<{ story: string; choice: string | null }> = [];
+          const loadedHistory: string[] = [];
+          const loadedNodeIds: string[] = [];
+          const nodeDataMap = new Map();
+
+          console.log(
+            "[useStoryPersistence] Loading existing story, nodes:",
+            storyData.nodes
+          );
+
+          // Sort nodes by index to ensure correct order
+          const sortedNodes = [...storyData.nodes].sort(
+            (a, b) => a.node_index - b.node_index
+          );
+
+          sortedNodes.forEach((node) => {
+            loadedSteps.push({
+              story: node.story_text,
+              choice: node.choice_made,
+            });
+            if (node.choice_made) {
+              loadedHistory.push(node.choice_made);
+            }
+            loadedNodeIds.push(node.id);
+            // Store additional node data (like image URLs)
+            nodeDataMap.set(node.node_index, {
+              imageUrl: node.image_url,
+              narrationUrl: node.narration_url,
+            });
+          });
+
+          // Get choices from the last node
+          let lastNodeChoices: string[] = [];
+          if (sortedNodes.length > 0) {
+            const lastNode = sortedNodes[sortedNodes.length - 1];
+            if (lastNode.story_choices && lastNode.story_choices.length > 0) {
+              console.log(
+                "[useStoryPersistence] Found choices for last node",
+                lastNode.node_index,
+                ":",
+                lastNode.story_choices
+              );
+              lastNodeChoices = lastNode.story_choices
+                .sort((a: any, b: any) => a.choice_index - b.choice_index)
+                .map((choice: any) => choice.choice_text);
+            }
+          }
+
+          console.log("[useStoryPersistence] Setting loaded choices:", lastNodeChoices);
+
+          return {
+            steps: loadedSteps,
+            history: loadedHistory,
+            nodeIds: loadedNodeIds,
+            nodeDataMap,
+            choices: lastNodeChoices,
+            storyId,
+          };
+        }
+      } catch (error) {
+        console.error("[useStoryPersistence] Error loading story:", error);
+      }
+      return null;
+    },
+    [getStoryWithNodes]
+  );
+
   return {
     loading,
     error,
@@ -275,5 +415,8 @@ export function useStoryPersistence() {
     getStoryWithNodes,
     markStoryCompleted,
     deleteStory,
+    updateNodeAssets,
+    saveNode,
+    loadStoryData,
   };
 }

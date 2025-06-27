@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { EdgeFunctions } from '@/lib/edgeFunctions';
 import { ThemedText } from './ThemedText';
@@ -34,7 +34,7 @@ export function NetworkDiagnostics() {
       addResult('\n=== Direct HTTPS Test ===');
       try {
         const httpsResponse = await fetch('https://httpbin.org/get');
-        const httpsData = await httpsResponse.json();
+        await httpsResponse.json();
         addResult(`HTTPS Test: Success (Status: ${httpsResponse.status})`);
       } catch (error) {
         addResult(`HTTPS Test Failed: ${error}`);

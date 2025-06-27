@@ -37,11 +37,12 @@ export default function ProfileScreen() {
           .eq('user_id', user.id);
 
         // Get total choices made (count nodes with non-null choice_made)
-        const { count: choices } = await supabase
-          .from('story_nodes')
-          .select('story_id', { count: 'exact', head: true })
-          .eq('story_id', user.id)
-          .not('choice_made', 'is', null);
+        // Note: This query doesn't work correctly, using the one below instead
+        // const { count: choices } = await supabase
+        //   .from('story_nodes')
+        //   .select('story_id', { count: 'exact', head: true })
+        //   .eq('story_id', user.id)
+        //   .not('choice_made', 'is', null);
 
         // For a more accurate count, we need to join through stories
         const { data: userStories } = await supabase
