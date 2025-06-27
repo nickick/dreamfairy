@@ -11,7 +11,9 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "supabase:start": "./scripts/start-supabase.sh",
-    "supabase:functions": "./scripts/start-supabase.sh && supabase functions serve --env-file ./supabase/.env.local"
+    "supabase:functions": "./scripts/start-supabase.sh && supabase functions serve --env-file ./supabase/.env.local",
+    "supabase:test": "deno test supabase/functions/tests/*.test.ts --allow-all --no-check",
+    "test:functions": "npm run supabase:test"
   },
   "dependencies": {
     "@elevenlabs/elevenlabs-js": "^2.4.0",
