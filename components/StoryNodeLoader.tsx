@@ -96,12 +96,6 @@ export function StoryNodeLoader({
     states.text && states.image && states.narration && states.choices;
 
   useEffect(() => {
-    console.log(
-      "[StoryNodeLoader] States:",
-      states,
-      "All complete:",
-      allComplete
-    );
     if (allComplete && onComplete && !hasCalledComplete.current) {
       hasCalledComplete.current = true;
       // Fade out the entire loader
@@ -111,7 +105,6 @@ export function StoryNodeLoader({
         delay: 300,
         useNativeDriver: true,
       }).start(() => {
-        console.log("[StoryNodeLoader] Animation complete, calling onComplete");
         onComplete();
       });
     }

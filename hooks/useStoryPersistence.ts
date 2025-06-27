@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { useCallback, useState } from "react";
 
 export interface Story {
   id: string;
@@ -36,7 +36,10 @@ export function useStoryPersistence() {
   const [error, setError] = useState<Error | null>(null);
 
   // Create a new story
-  const createStory = async (seed: string, title?: string): Promise<Story | null> => {
+  const createStory = async (
+    seed: string,
+    title?: string
+  ): Promise<Story | null> => {
     if (!user) return null;
 
     setLoading(true);
@@ -44,7 +47,7 @@ export function useStoryPersistence() {
 
     try {
       const { data, error } = await supabase
-        .from('stories')
+        .from("stories")
         .insert({
           user_id: user.id,
           seed,
@@ -58,7 +61,7 @@ export function useStoryPersistence() {
       return data;
     } catch (err) {
       setError(err as Error);
-      console.error('Error creating story:', err);
+      console.error("Error creating story:", err);
       return null;
     } finally {
       setLoading(false);
@@ -81,7 +84,7 @@ export function useStoryPersistence() {
 
     try {
       const { data, error } = await supabase
-        .from('story_nodes')
+        .from("story_nodes")
         .insert({
           story_id: storyId,
           node_index: nodeIndex,
@@ -97,14 +100,14 @@ export function useStoryPersistence() {
 
       // Update the story's updated_at timestamp
       await supabase
-        .from('stories')
+        .from("stories")
         .update({ updated_at: new Date().toISOString() })
-        .eq('id', storyId);
+        .eq("id", storyId);
 
       return data;
     } catch (err) {
       setError(err as Error);
-      console.error('Error saving story node:', err);
+      console.error("Error saving story node:", err);
       return null;
     } finally {
       setLoading(false);
@@ -129,14 +132,14 @@ export function useStoryPersistence() {
       }));
 
       const { error } = await supabase
-        .from('story_choices')
+        .from("story_choices")
         .insert(choiceInserts);
 
       if (error) throw error;
       return true;
     } catch (err) {
       setError(err as Error);
-      console.error('Error saving choices:', err);
+      console.error("Error saving choices:", err);
       return false;
     } finally {
       setLoading(false);
@@ -152,16 +155,16 @@ export function useStoryPersistence() {
 
     try {
       const { data, error } = await supabase
-        .from('stories')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
+        .from("stories")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("updated_at", { ascending: false });
 
       if (error) throw error;
       return data || [];
     } catch (err) {
       setError(err as Error);
-      console.error('Error fetching stories:', err);
+      console.error("Error fetching stories:", err);
       return [];
     } finally {
       setLoading(false);
@@ -169,47 +172,52 @@ export function useStoryPersistence() {
   }, [user]);
 
   // Get a specific story with all its nodes and choices
-  const getStoryWithNodes = useCallback(async (storyId: string) => {
-    if (!user) return null;
+  const getStoryWithNodes = useCallback(
+    async (storyId: string) => {
+      if (!user) return null;
 
-    setLoading(true);
-    setError(null);
+      setLoading(true);
+      setError(null);
 
-    try {
-      // Get the story
-      const { data: story, error: storyError } = await supabase
-        .from('stories')
-        .select('*')
-        .eq('id', storyId)
-        .eq('user_id', user.id)
-        .single();
+      try {
+        // Get the story
+        const { data: story, error: storyError } = await supabase
+          .from("stories")
+          .select("*")
+          .eq("id", storyId)
+          .eq("user_id", user.id)
+          .single();
 
-      if (storyError) throw storyError;
+        if (storyError) throw storyError;
 
-      // Get all nodes for this story
-      const { data: nodes, error: nodesError } = await supabase
-        .from('story_nodes')
-        .select(`
+        // Get all nodes for this story
+        const { data: nodes, error: nodesError } = await supabase
+          .from("story_nodes")
+          .select(
+            `
           *,
           story_choices (*)
-        `)
-        .eq('story_id', storyId)
-        .order('node_index', { ascending: true });
+        `
+          )
+          .eq("story_id", storyId)
+          .order("node_index", { ascending: true });
 
-      if (nodesError) throw nodesError;
+        if (nodesError) throw nodesError;
 
-      return {
-        story,
-        nodes: nodes || [],
-      };
-    } catch (err) {
-      setError(err as Error);
-      console.error('Error fetching story with nodes:', err);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [user]);
+        return {
+          story,
+          nodes: nodes || [],
+        };
+      } catch (err) {
+        setError(err as Error);
+        console.error("Error fetching story with nodes:", err);
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [user]
+  );
 
   // Mark a story as completed
   const markStoryCompleted = async (storyId: string): Promise<boolean> => {
@@ -220,19 +228,19 @@ export function useStoryPersistence() {
 
     try {
       const { error } = await supabase
-        .from('stories')
-        .update({ 
+        .from("stories")
+        .update({
           is_completed: true,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
-        .eq('id', storyId)
-        .eq('user_id', user.id);
+        .eq("id", storyId)
+        .eq("user_id", user.id);
 
       if (error) throw error;
       return true;
     } catch (err) {
       setError(err as Error);
-      console.error('Error marking story completed:', err);
+      console.error("Error marking story completed:", err);
       return false;
     } finally {
       setLoading(false);
@@ -249,16 +257,16 @@ export function useStoryPersistence() {
     try {
       // Due to cascade delete, this will also delete all nodes and choices
       const { error } = await supabase
-        .from('stories')
+        .from("stories")
         .delete()
-        .eq('id', storyId)
-        .eq('user_id', user.id);
+        .eq("id", storyId)
+        .eq("user_id", user.id);
 
       if (error) throw error;
       return true;
     } catch (err) {
       setError(err as Error);
-      console.error('Error deleting story:', err);
+      console.error("Error deleting story:", err);
       return false;
     } finally {
       setLoading(false);
@@ -267,7 +275,10 @@ export function useStoryPersistence() {
 
   // Update node assets (image/narration URLs)
   const updateNodeAssets = useCallback(
-    async (nodeId: string, updates: { image_url?: string; narration_url?: string }) => {
+    async (
+      nodeId: string,
+      updates: { image_url?: string; narration_url?: string }
+    ) => {
       try {
         const { error } = await supabase
           .from("story_nodes")
@@ -277,7 +288,10 @@ export function useStoryPersistence() {
         if (error) throw error;
         return true;
       } catch (error) {
-        console.error("[useStoryPersistence] Error updating node assets:", error);
+        console.error(
+          "[useStoryPersistence] Error updating node assets:",
+          error
+        );
         return false;
       }
     },
@@ -338,15 +352,11 @@ export function useStoryPersistence() {
       try {
         const storyData = await getStoryWithNodes(storyId);
         if (storyData) {
-          const loadedSteps: Array<{ story: string; choice: string | null }> = [];
+          const loadedSteps: Array<{ story: string; choice: string | null }> =
+            [];
           const loadedHistory: string[] = [];
           const loadedNodeIds: string[] = [];
           const nodeDataMap = new Map();
-
-          console.log(
-            "[useStoryPersistence] Loading existing story, nodes:",
-            storyData.nodes
-          );
 
           // Sort nodes by index to ensure correct order
           const sortedNodes = [...storyData.nodes].sort(
@@ -363,14 +373,6 @@ export function useStoryPersistence() {
             }
             loadedNodeIds.push(node.id);
             // Store additional node data (like image URLs)
-            console.log(
-              "[useStoryPersistence] Node",
-              node.node_index,
-              "image_url:",
-              node.image_url,
-              "narration_url:",
-              node.narration_url
-            );
             nodeDataMap.set(node.node_index, {
               imageUrl: node.image_url,
               narrationUrl: node.narration_url,
@@ -382,19 +384,11 @@ export function useStoryPersistence() {
           if (sortedNodes.length > 0) {
             const lastNode = sortedNodes[sortedNodes.length - 1];
             if (lastNode.story_choices && lastNode.story_choices.length > 0) {
-              console.log(
-                "[useStoryPersistence] Found choices for last node",
-                lastNode.node_index,
-                ":",
-                lastNode.story_choices
-              );
               lastNodeChoices = lastNode.story_choices
                 .sort((a: any, b: any) => a.choice_index - b.choice_index)
                 .map((choice: any) => choice.choice_text);
             }
           }
-
-          console.log("[useStoryPersistence] Setting loaded choices:", lastNodeChoices);
 
           return {
             steps: loadedSteps,

@@ -1,11 +1,11 @@
 import React from "react";
 import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
   ActivityIndicator,
   Animated,
   LayoutChangeEvent,
+  StyleSheet,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { ThemedText } from "./ThemedText";
 
@@ -42,11 +42,9 @@ export const StoryNode = React.forwardRef<View, StoryNodeProps>(
     },
     ref
   ) => {
-    // Use the image URL passed from parent
-    const displayImageUrl = existingImageUrl;
+    // Use existing image URL if provided
+    const imageUrl = existingImageUrl;
     const imageLoading = false; // Loading is handled by parent
-    
-    console.log(`[StoryNode] Received existingImageUrl:`, existingImageUrl);
 
     return (
       <View ref={ref} style={styles.storyBlock} onLayout={onLayout}>
@@ -85,9 +83,9 @@ export const StoryNode = React.forwardRef<View, StoryNodeProps>(
                 style={{ marginVertical: 16 }}
               />
             )}
-            {displayImageUrl && (
+            {imageUrl && (
               <Animated.Image
-                source={{ uri: displayImageUrl }}
+                source={{ uri: imageUrl }}
                 style={[
                   styles.storyImage,
                   {
@@ -113,12 +111,8 @@ export const StoryNode = React.forwardRef<View, StoryNodeProps>(
                 color: colors.text,
                 borderColor: colors.border,
                 fontFamily: theme.fonts.body,
-                borderTopLeftRadius: displayImageUrl
-                  ? 0
-                  : theme.styles.borderRadius,
-                borderTopRightRadius: displayImageUrl
-                  ? 0
-                  : theme.styles.borderRadius,
+                borderTopLeftRadius: imageUrl ? 0 : theme.styles.borderRadius,
+                borderTopRightRadius: imageUrl ? 0 : theme.styles.borderRadius,
                 borderBottomLeftRadius: theme.styles.borderRadius,
                 borderBottomRightRadius: theme.styles.borderRadius,
                 borderWidth: theme.styles.borderWidth,

@@ -1,7 +1,9 @@
+import { NetworkDiagnostics } from "@/components/NetworkDiagnostics";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
+import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import React, { useState } from "react";
 import {
@@ -17,8 +19,6 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
-import { Ionicons } from "@expo/vector-icons";
-import { NetworkDiagnostics } from "@/components/NetworkDiagnostics";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -34,11 +34,6 @@ export default function LoginScreen() {
   const insets = useSafeAreaInsets();
 
   const siteKey = process.env.EXPO_PUBLIC_HCAPTCHA_SITE_KEY;
-
-  console.log(
-    "Using hCaptcha sitekey:",
-    siteKey ? `${siteKey.substring(0, 8)}...` : "No sitekey configured"
-  );
 
   const handleSignIn = async () => {
     if (!email) {
@@ -76,7 +71,6 @@ export default function LoginScreen() {
   };
 
   const onVerify = async (token: string) => {
-    console.log("hCaptcha verified with token:", token);
     setShowCaptcha(false);
 
     // Proceed with guest login
@@ -252,18 +246,18 @@ export default function LoginScreen() {
                   style={[
                     styles.debugButton,
                     {
-                      backgroundColor: '#FF6B6B',
+                      backgroundColor: "#FF6B6B",
                       borderColor: colors.border,
                       borderRadius: theme.styles.borderRadius,
                       borderWidth: theme.styles.borderWidth,
-                    }
+                    },
                   ]}
                   onPress={() => setShowDiagnostics(true)}
                 >
-                  <Ionicons 
-                    name="bug-outline" 
-                    size={20} 
-                    color="#FFF" 
+                  <Ionicons
+                    name="bug-outline"
+                    size={20}
+                    color="#FFF"
                     style={{ marginRight: 8 }}
                   />
                   <ThemedText
@@ -271,7 +265,7 @@ export default function LoginScreen() {
                       styles.debugText,
                       {
                         fontFamily: theme.fonts.button,
-                        color: '#FFF',
+                        color: "#FFF",
                       },
                     ]}
                   >
@@ -518,21 +512,15 @@ export default function LoginScreen() {
                 onMessage={(event) => {
                   try {
                     const message = event.nativeEvent.data;
-                    console.log("WebView message:", message);
 
                     // Check if it's our JSON message
                     if (message.startsWith("{")) {
                       const data = JSON.parse(message);
                       if (data.type === "log") {
-                        console.log("[hCaptcha]", data.message);
+                        // Log message from hCaptcha
                       } else if (data.type === "success") {
                         onVerify(data.token);
                       } else if (data.type === "error") {
-                        console.log(
-                          "hCaptcha error:",
-                          data.error,
-                          data.message || ""
-                        );
                         if (
                           data.error === "invalid-data" ||
                           data.error === "render-failed"
@@ -580,17 +568,13 @@ export default function LoginScreen() {
                           [{ text: "OK", onPress: () => setShowCaptcha(false) }]
                         );
                       }
-                    } else {
-                      // Handle non-JSON messages from hCaptcha
-                      console.log("Non-JSON message from WebView:", message);
                     }
                   } catch (e) {
-                    console.log("Error parsing WebView message:", e);
+                    // Error parsing WebView message
                   }
                 }}
                 onLoad={() => setCaptchaLoading(false)}
                 onError={(error) => {
-                  console.log("WebView error:", error);
                   setCaptchaLoading(false);
                   Alert.alert(
                     "Error",
@@ -647,8 +631,15 @@ export default function LoginScreen() {
           onRequestClose={() => setShowDiagnostics(false)}
         >
           <View style={styles.modalContainer}>
-            <View style={[styles.modalHeader, { backgroundColor: colors.primary }]}>
-              <ThemedText style={[styles.modalTitle, { fontFamily: theme.fonts.title, color: colors.text }]}>
+            <View
+              style={[styles.modalHeader, { backgroundColor: colors.primary }]}
+            >
+              <ThemedText
+                style={[
+                  styles.modalTitle,
+                  { fontFamily: theme.fonts.title, color: colors.text },
+                ]}
+              >
                 Network Diagnostics
               </ThemedText>
               <TouchableOpacity onPress={() => setShowDiagnostics(false)}>
@@ -803,9 +794,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   debugButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 14,
     paddingHorizontal: 24,
     marginTop: 20,
@@ -814,14 +805,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
     paddingTop: 50,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
 });

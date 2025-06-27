@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
 import { EdgeFunctions } from "@/lib/edgeFunctions";
+import { useCallback, useState } from "react";
 
 export function useGenerateImage(prompt: string | undefined) {
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -8,7 +8,7 @@ export function useGenerateImage(prompt: string | undefined) {
 
   const generate = useCallback(async () => {
     if (!prompt) return;
-    
+
     setLoading(true);
     setError(null);
     setImageUrl(null);
@@ -18,11 +18,11 @@ export function useGenerateImage(prompt: string | undefined) {
         width: 512,
         height: 512,
       });
-      
+
       setImageUrl(response.imageUrl);
     } catch (err: any) {
-      console.log("Error generating image:", err.message);
       setError(err.message || "Failed to generate image.");
+      console.error("Error generating image:", err.message);
     } finally {
       setLoading(false);
     }

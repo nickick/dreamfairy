@@ -1,3 +1,5 @@
+import { LanguageDropdown } from "@/components/LanguageDropdown";
+import { StoriesDrawer } from "@/components/StoriesDrawer";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import {
@@ -5,12 +7,13 @@ import {
   retroFutureTheme,
   storyThemeMap,
 } from "@/constants/Themes";
+import { useTranslation } from "@/constants/translations";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Story, useStoryPersistence } from "@/hooks/useStoryPersistence";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter, useFocusEffect } from "expo-router";
-import React, { useEffect, useState, useCallback } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   FlatList,
   Platform,
@@ -20,9 +23,6 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { StoriesDrawer } from "@/components/StoriesDrawer";
-import { LanguageDropdown } from "@/components/LanguageDropdown";
-import { useTranslation } from "@/constants/translations";
 
 const STORY_SEEDS = [
   "A magical forest adventure",
@@ -57,39 +57,38 @@ export default function HomeScreen() {
     }
   }, [selectedSeed, setThemeName]);
 
-  // Load stories function
-  const loadStories = useCallback(async () => {
-    if (!user) {
-      setStoriesLoading(false);
-      setSavedStories([]);
-      return;
-    }
-
-    try {
-      setStoriesLoading(true);
-      console.log('Loading stories for user:', user.id);
-      const stories = await getUserStories();
-      console.log('Loaded stories:', stories);
-      setSavedStories(stories);
-    } catch (error) {
-      console.error("Error loading stories:", error);
-      setSavedStories([]);
-    } finally {
-      setStoriesLoading(false);
-    }
-  }, [getUserStories, user]);
-
-  // Load stories on mount and when user changes
+  // Load user's stories
   useEffect(() => {
-    loadStories();
-  }, [loadStories]);
+    const loadStories = async () => {
+      if (user) {
+        try {
+          const userStories = await getUserStories();
+          setSavedStories(userStories);
+        } catch (error) {
+          console.error("Error loading stories:", error);
+          setSavedStories([]);
+        }
+      }
+    };
 
-  // Reload stories when screen comes into focus
+    loadStories();
+  }, [user, getUserStories]);
+
+  // Reload stories when screen is focused
   useFocusEffect(
     useCallback(() => {
-      console.log('Home screen focused - reloading stories');
-      loadStories();
-    }, [loadStories])
+      if (user) {
+        const loadStories = async () => {
+          try {
+            const userStories = await getUserStories();
+            setSavedStories(userStories);
+          } catch (error) {
+            console.error("Error loading stories:", error);
+          }
+        };
+        loadStories();
+      }
+    }, [user, getUserStories])
   );
 
   const handleStartStory = () => {
@@ -129,11 +128,12 @@ export default function HomeScreen() {
               type="title"
               style={[styles.header, { fontFamily: theme.fonts.title }]}
             >
-              {t('welcome')}{"\n"}{t('appName')}
+              {t("welcome")}
+              {"\n"}
+              {t("appName")}
             </ThemedText>
           </>
         );
-        
 
       case "continueButton":
         return (
@@ -160,7 +160,7 @@ export default function HomeScreen() {
                 { fontFamily: theme.fonts.button, color: colors.text },
               ]}
             >
-              {t('continueStory')}
+              {t("continueStory")}
             </ThemedText>
             <Ionicons
               name="chevron-up"
@@ -180,7 +180,7 @@ export default function HomeScreen() {
               { fontFamily: theme.fonts.title, color: colors.text },
             ]}
           >
-            {t('startNewAdventure')}
+            {t("startNewAdventure")}
           </ThemedText>
         );
 
@@ -258,7 +258,7 @@ export default function HomeScreen() {
                   : styles.startButtonTextEnabled,
               ]}
             >
-              {t('startStory')}
+              {t("startStory")}
             </ThemedText>
           </TouchableOpacity>
         );
@@ -293,7 +293,16 @@ export default function HomeScreen() {
         stories={savedStories}
         loading={storiesLoading}
         onSelectStory={handleContinueStory}
-        onRefresh={loadStories}
+        onRefresh={async () => {
+          if (user) {
+            try {
+              const userStories = await getUserStories();
+              setSavedStories(userStories);
+            } catch (error) {
+              console.error("Error loading stories:", error);
+            }
+          }
+        }}
       />
     </SafeAreaView>
   );
@@ -309,8 +318,8 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   headerContainer: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 30,
+    position: "absolute",
+    top: Platform.OS === "ios" ? 50 : 30,
     right: 20,
     zIndex: 1000,
   },
@@ -432,9 +441,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   continueButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 16,
     paddingHorizontal: 32,
     marginTop: 20,
