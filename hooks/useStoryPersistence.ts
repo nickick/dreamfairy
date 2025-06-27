@@ -363,6 +363,14 @@ export function useStoryPersistence() {
             }
             loadedNodeIds.push(node.id);
             // Store additional node data (like image URLs)
+            console.log(
+              "[useStoryPersistence] Node",
+              node.node_index,
+              "image_url:",
+              node.image_url,
+              "narration_url:",
+              node.narration_url
+            );
             nodeDataMap.set(node.node_index, {
               imageUrl: node.image_url,
               narrationUrl: node.narration_url,

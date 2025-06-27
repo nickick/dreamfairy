@@ -44,7 +44,9 @@ export const StoryNode = React.forwardRef<View, StoryNodeProps>(
   ) => {
     // Use the image URL passed from parent
     const displayImageUrl = existingImageUrl;
-    const imageLoading = !displayImageUrl && !existingImageUrl;
+    const imageLoading = false; // Loading is handled by parent
+    
+    console.log(`[StoryNode] Received existingImageUrl:`, existingImageUrl);
 
     return (
       <View ref={ref} style={styles.storyBlock} onLayout={onLayout}>

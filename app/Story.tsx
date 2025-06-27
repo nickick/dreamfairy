@@ -10,7 +10,6 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useGenerateStory } from "@/hooks/useGenerateStory";
 import { useStoryPersistence } from "@/hooks/useStoryPersistence";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
-import { useAssetGeneration } from "@/hooks/useAssetGeneration";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -84,7 +83,6 @@ export default function StoryScreen() {
     loadStoryData,
   } = useStoryPersistence();
   const [loadedData, setLoadedData] = useState<any>(null);
-  const { generatedAssets } = useAssetGeneration();
 
   // Set theme based on story seed
   useEffect(() => {
@@ -127,9 +125,20 @@ export default function StoryScreen() {
           setSteps(data.steps);
           setHistory(data.history);
           setNodeIds(data.nodeIds);
-          setExistingNodeData(data.nodeDataMap);
+          setExistingNodeData(new Map(data.nodeDataMap));
           setLoadedChoices(data.choices);
           setIsExistingStoryLoaded(true);
+          setPendingAssets(null); // Clear any pending assets when loading
+          
+          console.log("[Story] Loaded node data map:", data.nodeDataMap);
+          // Log each entry in the map
+          data.nodeDataMap.forEach((value, key) => {
+            console.log(`[Story] Node ${key} data:`, value);
+          });
+          
+          // Test accessing the map
+          console.log("[Story] Test accessing node 0:", data.nodeDataMap.get(0));
+          console.log("[Story] Test accessing node 1:", data.nodeDataMap.get(1));
 
           // If we're loading an existing story with no seed (from profile), keep generation disabled
           if (!seed) {
@@ -155,6 +164,48 @@ export default function StoryScreen() {
     };
     loadStory();
   }, [storyId, loadStoryData, seed]);
+
+  // Update existingNodeData and database when pendingAssets change
+  useEffect(() => {
+    const updateAssetsForNode = async () => {
+      if (pendingAssets && steps.length > 0) {
+        const latestNodeIndex = steps.length - 1;
+        console.log("[Story] Updating assets for index", latestNodeIndex, "with pendingAssets:", pendingAssets);
+        
+        // Update local cache
+        setExistingNodeData((prev) => {
+          const newMap = new Map(prev);
+          const currentData = newMap.get(latestNodeIndex) || {};
+          newMap.set(latestNodeIndex, {
+            ...currentData,
+            imageUrl: pendingAssets.imageUrl || currentData.imageUrl,
+            narrationUrl: pendingAssets.narrationUrl || currentData.narrationUrl,
+          });
+          return newMap;
+        });
+        
+        // Update database if we have a node ID
+        const nodeId = nodeIds[latestNodeIndex];
+        if (nodeId) {
+          const updates: any = {};
+          if (pendingAssets.imageUrl) updates.image_url = pendingAssets.imageUrl;
+          if (pendingAssets.narrationUrl) updates.narration_url = pendingAssets.narrationUrl;
+          
+          if (Object.keys(updates).length > 0) {
+            console.log("[Story] Saving pending assets to database for node", latestNodeIndex, "nodeId:", nodeId, "updates:", updates);
+            await updateNodeAssets(nodeId, updates);
+            
+            // Clear pending assets after saving
+            setPendingAssets(null);
+          }
+        } else {
+          console.log("[Story] Warning: No nodeId available yet for index", latestNodeIndex, "will retry when nodeId is available");
+        }
+      }
+    };
+    
+    updateAssetsForNode();
+  }, [pendingAssets, steps.length, nodeIds, updateNodeAssets]);
 
   // Track when loading starts
   useEffect(() => {
@@ -200,6 +251,13 @@ export default function StoryScreen() {
     });
     // Only trigger for new story content when loader is showing
     if (story && choices && !error && !isExistingStoryLoaded && showLoader) {
+      const latestNodeIndex = steps.length;
+      
+      // Check if we've already generated assets for this node
+      if (generatedNodeIndicesRef.current.has(latestNodeIndex)) {
+        console.log("[Story] Assets already generated for nodeIndex:", latestNodeIndex);
+        return;
+      }
       // Mark text and choices as loaded immediately
       setLoadingStates((prev) => ({
         ...prev,
@@ -207,23 +265,37 @@ export default function StoryScreen() {
         choices: true,
       }));
 
-      const latestNodeIndex = steps.length;
-
       // Start generating image and narration in parallel
       const generateAssets = async () => {
         console.log("[Story] generateAssets called for nodeIndex:", latestNodeIndex);
         
-        // Prevent duplicate generation
-        if (generatingAssetsRef.current || generatedNodeIndicesRef.current.has(latestNodeIndex)) {
-          console.log("[Story] Asset generation already in progress or completed for nodeIndex:", latestNodeIndex);
+        // Prevent concurrent generation
+        if (generatingAssetsRef.current) {
+          console.log("[Story] Asset generation already in progress");
           return;
         }
         generatingAssetsRef.current = true;
         generatedNodeIndicesRef.current.add(latestNodeIndex);
         
+        // Check current state of assets
+        const currentNodeData = existingNodeData.get(latestNodeIndex);
+        const hasExistingImage = !!currentNodeData?.imageUrl;
+        const hasExistingNarration = !!currentNodeData?.narrationUrl;
+        
+        console.log("[Story] Current node data:", { 
+          latestNodeIndex, 
+          hasExistingImage, 
+          hasExistingNarration,
+          currentNodeData 
+        });
+        
+        // Variables to collect generated assets
+        let newImageUrl: string | undefined;
+        let newNarrationUrl: string | undefined;
+        
         // Start both generations in parallel
         const imagePromise = (async () => {
-          if (!existingNodeData.get(latestNodeIndex)?.imageUrl) {
+          if (!hasExistingImage) {
             console.log("[Story] Starting image generation for nodeIndex:", latestNodeIndex);
             try {
               const { EdgeFunctions } = await import("@/lib/edgeFunctions");
@@ -233,11 +305,13 @@ export default function StoryScreen() {
                 height: 512,
               });
               console.log("[Story] Image generation complete");
+              newImageUrl = imageResponse.imageUrl;
               // Store the image URL for later use
               setPendingAssets((prev) => ({
                 ...prev,
                 imageUrl: imageResponse.imageUrl,
               }));
+              
             } catch (err) {
               console.error("[Story] Image generation failed:", err);
             } finally {
@@ -255,7 +329,7 @@ export default function StoryScreen() {
         })();
 
         const narrationPromise = (async () => {
-          if (!existingNodeData.get(latestNodeIndex)?.narrationUrl) {
+          if (!hasExistingNarration) {
             console.log("[Story] Starting narration generation for nodeIndex:", latestNodeIndex);
             try {
               const { EdgeFunctions } = await import("@/lib/edgeFunctions");
@@ -264,11 +338,13 @@ export default function StoryScreen() {
                 voiceType: "narrator",
               });
               console.log("[Story] Narration generation complete");
+              newNarrationUrl = narrationResponse.audioUrl;
               // Store the narration URL for later use
               setPendingAssets((prev) => ({
                 ...prev,
                 narrationUrl: narrationResponse.audioUrl,
               }));
+              
             } catch (err) {
               console.error("[Story] Narration generation failed:", err);
             } finally {
@@ -288,13 +364,16 @@ export default function StoryScreen() {
         // Wait for both to complete (but they run in parallel)
         await Promise.all([imagePromise, narrationPromise]);
         
+        // Assets will be saved by the pendingAssets useEffect
+        console.log("[Story] Asset generation complete for node", latestNodeIndex);
+        
         // Reset flag
         generatingAssetsRef.current = false;
       };
 
       generateAssets();
     }
-  }, [story, choices, steps.length, error, isExistingStoryLoaded, showLoader, existingNodeData]);
+  }, [story, choices, steps.length, error, isExistingStoryLoaded, showLoader]);
 
   // On first load, add the first story node and create story in database
   useEffect(() => {
@@ -363,16 +442,15 @@ export default function StoryScreen() {
           story,
           choiceMade,
           choices,
-          imageUrl: pendingAssets?.imageUrl || generatedAssets?.imageUrl,
-          narrationUrl: pendingAssets?.narrationUrl || generatedAssets?.narrationUrl,
+          imageUrl: pendingAssets?.imageUrl,
+          narrationUrl: pendingAssets?.narrationUrl,
         });
 
         if (node) {
           setNodeIds((prev) => [...prev, node.id]);
 
           // If we have pending assets, save them to the database
-          if (pendingAssets) {
-            const { supabase } = await import("@/lib/supabase");
+          if (pendingAssets && Object.keys(pendingAssets).length > 0) {
             const updates: any = {};
             if (pendingAssets.imageUrl)
               updates.image_url = pendingAssets.imageUrl;
@@ -380,10 +458,7 @@ export default function StoryScreen() {
               updates.narration_url = pendingAssets.narrationUrl;
 
             if (Object.keys(updates).length > 0) {
-              await supabase
-                .from("story_nodes")
-                .update(updates)
-                .eq("id", node.id);
+              await updateNodeAssets(node.id, updates);
 
               // Update local cache
               setExistingNodeData((prev) => {
@@ -534,6 +609,12 @@ export default function StoryScreen() {
         {steps.map((step, idx) => {
           // Don't render any story nodes, just show them all
           const isLatestNode = idx === steps.length - 1;
+          const nodeData = existingNodeData.get(idx);
+          const imageUrl = idx === steps.length - 1 && pendingAssets?.imageUrl
+            ? pendingAssets.imageUrl
+            : nodeData?.imageUrl;
+          
+          console.log(`[Story] Rendering node ${idx}, imageUrl:`, imageUrl, "nodeData:", nodeData, "existingNodeData size:", existingNodeData.size, "pendingAssets:", pendingAssets, "isExistingStoryLoaded:", isExistingStoryLoaded);
 
           return (
             <StoryNode
@@ -575,11 +656,7 @@ export default function StoryScreen() {
               }}
               nodeId={nodeIds[idx]}
               storyId={currentStoryId || undefined}
-              existingImageUrl={
-                idx === steps.length - 1 && pendingAssets?.imageUrl
-                  ? pendingAssets.imageUrl
-                  : existingNodeData.get(idx)?.imageUrl
-              }
+              existingImageUrl={imageUrl}
             />
           );
         })}
