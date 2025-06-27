@@ -12,6 +12,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "@/constants/translations";
 import {
   ActivityIndicator,
   Animated,
@@ -49,8 +50,9 @@ const StoryNode = React.forwardRef<
     storyId?: string;
     onImageGenerated?: (imageUrl: string) => void;
     existingImageUrl?: string;
+    t: (key: string, params?: Record<string, string>) => string;
   }
->(({ story, choice, isDark, colors, theme, onLayout, isCurrentNarration, onSelectNarration, nodeId, storyId, onImageGenerated, existingImageUrl }, _ref) => {
+>(({ story, choice, isDark, colors, theme, onLayout, isCurrentNarration, onSelectNarration, nodeId, storyId, onImageGenerated, existingImageUrl, t }, _ref) => {
   const {
     imageUrl,
     loading: imageLoading,
@@ -195,7 +197,7 @@ const StoryNode = React.forwardRef<
             }
           ]}
         >
-          {isCurrentNarration ? 'Currently Playing' : 'Play This Part'}
+          {isCurrentNarration ? t('currentlyPlaying') : t('playThisPart')}
         </ThemedText>
       </TouchableOpacity>
     </View>
@@ -207,6 +209,7 @@ export default function StoryScreen() {
   const [steps, setSteps] = useState<StoryStep[]>([]); // Each step: {story, choice}
   const [history, setHistory] = useState<string[]>([]); // Just the choices for the hook
   const [currentNarrationIndex, setCurrentNarrationIndex] = useState<number | null>(null);
+  const { t } = useTranslation();
   const [currentStoryId, setCurrentStoryId] = useState<string | null>(null);
   const [nodeIds, setNodeIds] = useState<string[]>([]);
   const [skipInitialGeneration, setSkipInitialGeneration] = useState(!!storyId);
@@ -519,6 +522,7 @@ export default function StoryScreen() {
             isDark={isDark}
             colors={colors}
             theme={theme}
+            t={t}
             onLayout={
               idx === steps.length - 1
                 ? (e) => (latestY.current = e.nativeEvent.layout.y)
@@ -604,7 +608,7 @@ export default function StoryScreen() {
                         },
                       ]}
                     >
-                      What will you do next?
+                      {t('whatWillYouDoNext')}
                     </ThemedText>
                   </LinearGradient>
                   <VoiceRecorder
@@ -653,7 +657,7 @@ export default function StoryScreen() {
                       },
                     ]}
                   >
-                    <>{"or"}</>
+                    <>{t('or')}</>
                   </ThemedText>
                   <View style={styles.dividerLine} />
                 </View>
@@ -682,7 +686,7 @@ export default function StoryScreen() {
                       },
                     ]}
                   >
-                    Regenerate Story
+                    {t('regenerateStory')}
                   </ThemedText>
                 </TouchableOpacity>
               </>

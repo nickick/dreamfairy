@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useTranslation } from '@/constants/translations';
 import {
   View,
   StyleSheet,
@@ -46,6 +47,7 @@ export function StoriesDrawer({
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const insets = useSafeAreaInsets();
   const { deleteStory } = useStoryPersistence();
+  const { t } = useTranslation();
 
   useEffect(() => {
     Animated.spring(translateY, {
@@ -58,15 +60,15 @@ export function StoriesDrawer({
 
   const handleDeleteStory = (story: Story) => {
     Alert.alert(
-      'Delete Story',
-      `Are you sure you want to delete "${story.title || story.seed}"? This action cannot be undone.`,
+      t('deleteStory'),
+      t('deleteStoryConfirm', { title: story.title || t(story.seed) }),
       [
         {
-          text: 'Cancel',
+          text: t('cancel'),
           style: 'cancel',
         },
         {
-          text: 'Delete',
+          text: t('delete'),
           style: 'destructive',
           onPress: async () => {
             try {
@@ -74,7 +76,7 @@ export function StoriesDrawer({
               onRefresh();
             } catch (error) {
               console.error('Error deleting story:', error);
-              Alert.alert('Error', 'Failed to delete story. Please try again.');
+              Alert.alert(t('error'), t('deleteStoryError'));
             }
           },
         },
@@ -137,7 +139,7 @@ export function StoriesDrawer({
                 },
               ]}
             >
-              {story.title || story.seed}
+              {story.title || t(story.seed)}
             </ThemedText>
             <ThemedText
               style={[
@@ -206,7 +208,7 @@ export function StoriesDrawer({
               { fontFamily: theme.fonts.title, color: colors.text },
             ]}
           >
-            Continue Your Adventures
+            {t('continueYourAdventures')}
           </ThemedText>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color={colors.text} />
@@ -228,7 +230,7 @@ export function StoriesDrawer({
                 { fontFamily: theme.fonts.body, color: colors.text, opacity: 0.6 },
               ]}
             >
-              No saved stories yet. Start a new adventure!
+              {t('noSavedStoriesYet')}
             </ThemedText>
             <TouchableOpacity
               style={[
@@ -248,7 +250,7 @@ export function StoriesDrawer({
                   { fontFamily: theme.fonts.button, color: colors.text },
                 ]}
               >
-                Refresh
+                {t('refresh')}
               </ThemedText>
             </TouchableOpacity>
           </View>

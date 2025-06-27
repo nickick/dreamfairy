@@ -24,6 +24,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { StoriesDrawer } from "@/components/StoriesDrawer";
 import { LanguageDropdown } from "@/components/LanguageDropdown";
+import { useTranslation } from "@/constants/translations";
 
 const STORY_SEEDS = [
   "A magical forest adventure",
@@ -51,6 +52,7 @@ export default function HomeScreen() {
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const { getUserStories } = useStoryPersistence();
   const { user } = useAuth();
+  const { t } = useTranslation();
 
   useEffect(() => {
     if (selectedSeed && storyThemeMap[selectedSeed]) {
@@ -130,7 +132,7 @@ export default function HomeScreen() {
               type="title"
               style={[styles.header, { fontFamily: theme.fonts.title }]}
             >
-              Welcome to{"\n"}Dream Fairy!
+              {t('welcome')}{"\n"}{t('appName')}
             </ThemedText>
           </>
         );
@@ -161,7 +163,7 @@ export default function HomeScreen() {
                 { fontFamily: theme.fonts.button, color: colors.text },
               ]}
             >
-              Continue Story
+              {t('continueStory')}
             </ThemedText>
             <Ionicons
               name="chevron-up"
@@ -181,7 +183,7 @@ export default function HomeScreen() {
               { fontFamily: theme.fonts.title, color: colors.text },
             ]}
           >
-            Start a New Adventure
+            {t('startNewAdventure')}
           </ThemedText>
         );
 
@@ -222,7 +224,7 @@ export default function HomeScreen() {
                 { fontFamily: seedTheme.fonts.button, color: seedColors.text },
               ]}
             >
-              {seed}
+              {t(seed)}
             </ThemedText>
           </TouchableOpacity>
         );
@@ -259,7 +261,7 @@ export default function HomeScreen() {
                   : styles.startButtonTextEnabled,
               ]}
             >
-              Start Story
+              {t('startStory')}
             </ThemedText>
           </TouchableOpacity>
         );
