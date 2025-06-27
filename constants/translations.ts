@@ -45,6 +45,14 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     cancel: "Cancel",
     delete: "Delete",
     error: "Error",
+    
+    // Profile Screen
+    guestUser: "Guest User",
+    stories: "Stories",
+    choices: "Choices",
+    signOut: "Sign Out",
+    signOutConfirm: "Are you sure you want to sign out?",
+    networkDiagnostics: "Network Diagnostics",
   },
   
   tl: {
@@ -91,6 +99,14 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     cancel: "Kanselahin",
     delete: "Burahin",
     error: "Error",
+    
+    // Profile Screen
+    guestUser: "Guest User",
+    stories: "Mga Kuwento",
+    choices: "Mga Pagpili",
+    signOut: "Mag-sign Out",
+    signOutConfirm: "Sigurado ka bang gusto mong mag-sign out?",
+    networkDiagnostics: "Network Diagnostics",
   },
   
   zh: {
@@ -137,6 +153,14 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     cancel: "取消",
     delete: "删除",
     error: "错误",
+    
+    // Profile Screen
+    guestUser: "访客用户",
+    stories: "故事",
+    choices: "选择",
+    signOut: "退出登录",
+    signOutConfirm: "确定要退出登录吗？",
+    networkDiagnostics: "网络诊断",
   },
   
   yue: {
@@ -183,6 +207,14 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     cancel: "取消",
     delete: "刪除",
     error: "錯誤",
+    
+    // Profile Screen
+    guestUser: "訪客用戶",
+    stories: "故仔",
+    choices: "選擇",
+    signOut: "登出",
+    signOutConfirm: "確定要登出呀？",
+    networkDiagnostics: "網絡診斷",
   },
 };
 

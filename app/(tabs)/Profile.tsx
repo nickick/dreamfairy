@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal, Platform } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,12 +8,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { NetworkDiagnostics } from '@/components/NetworkDiagnostics';
+import { useTranslation } from '@/constants/translations';
+import { LanguageDropdown } from '@/components/LanguageDropdown';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
   const { theme, isDark } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [storyCount, setStoryCount] = useState(0);
   const [choiceCount, setChoiceCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -70,12 +73,12 @@ export default function ProfileScreen() {
 
   const handleSignOut = () => {
     Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
+      t('signOut'),
+      t('signOutConfirm'),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('cancel'), style: 'cancel' },
         { 
-          text: 'Sign Out', 
+          text: t('signOut'), 
           style: 'destructive',
           onPress: signOut
         }
@@ -85,7 +88,13 @@ export default function ProfileScreen() {
 
   return (
     <ThemedView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.content, { paddingTop: insets.top + 20 }]}>
+      <View style={styles.headerContainer}>
+        <LanguageDropdown />
+      </View>
+      <ScrollView 
+        contentContainerStyle={[styles.content, { paddingTop: insets.top + 20, paddingBottom: 20 }]}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={[
           styles.profileCard,
           {
@@ -122,7 +131,7 @@ export default function ProfileScreen() {
               color: colors.text
             }
           ]}>
-            {user?.email || (user?.id ? 'Guest User' : 'No email')}
+            {user?.email || (user?.id ? t('guestUser') : 'No email')}
           </ThemedText>
 
           <View style={styles.statsContainer}>
@@ -144,7 +153,7 @@ export default function ProfileScreen() {
                   opacity: 0.7
                 }
               ]}>
-                Stories
+                {t('stories')}
               </ThemedText>
             </View>
 
@@ -171,7 +180,7 @@ export default function ProfileScreen() {
                   opacity: 0.7
                 }
               ]}>
-                Choices
+                {t('choices')}
               </ThemedText>
             </View>
           </View>
@@ -202,20 +211,9 @@ export default function ProfileScreen() {
               color: colors.text
             }
           ]}>
-            Sign Out
+            {t('signOut')}
           </ThemedText>
         </TouchableOpacity>
-
-        <ThemedText style={[
-          styles.versionText,
-          { 
-            fontFamily: theme.fonts.body,
-            color: colors.text,
-            opacity: 0.5
-          }
-        ]}>
-          DreamFairy v1.0.0
-        </ThemedText>
 
         <TouchableOpacity
           style={[
@@ -242,10 +240,21 @@ export default function ProfileScreen() {
               color: '#FFF'
             }
           ]}>
-            Network Diagnostics
+            {t('networkDiagnostics')}
           </ThemedText>
         </TouchableOpacity>
-      </View>
+
+        <ThemedText style={[
+          styles.versionText,
+          { 
+            fontFamily: theme.fonts.body,
+            color: colors.text,
+            opacity: 0.5
+          }
+        ]}>
+          DreamFairy v1.0.0
+        </ThemedText>
+      </ScrollView>
 
       <Modal
         visible={showDiagnostics}
@@ -256,7 +265,7 @@ export default function ProfileScreen() {
         <View style={styles.modalContainer}>
           <View style={[styles.modalHeader, { backgroundColor: colors.primary }]}>
             <ThemedText style={[styles.modalTitle, { fontFamily: theme.fonts.title, color: colors.text }]}>
-              Network Diagnostics
+              {t('networkDiagnostics')}
             </ThemedText>
             <TouchableOpacity onPress={() => setShowDiagnostics(false)}>
               <Ionicons name="close" size={24} color={colors.text} />
@@ -273,10 +282,16 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerContainer: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 30,
+    right: 20,
+    zIndex: 1000,
+  },
   content: {
-    flex: 1,
     paddingHorizontal: 24,
     alignItems: 'center',
+    minHeight: '100%',
   },
   profileCard: {
     width: '100%',
@@ -335,16 +350,16 @@ const styles = StyleSheet.create({
   },
   versionText: {
     fontSize: 12,
-    marginTop: 'auto',
-    marginBottom: 20,
+    marginTop: 16,
+    marginBottom: 40,
   },
   debugButton: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 24,
-    marginBottom: 24,
     marginTop: 20,
+    marginBottom: 16,
   },
   debugText: {
     fontSize: 14,
