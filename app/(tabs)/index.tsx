@@ -60,14 +60,23 @@ export default function HomeScreen() {
   // Load user's stories
   useEffect(() => {
     const loadStories = async () => {
+      console.log("[HomePage] Loading stories, user:", user);
       if (user) {
+        setStoriesLoading(true);
         try {
+          console.log("[HomePage] Calling getUserStories...");
           const userStories = await getUserStories();
+          console.log("[HomePage] Stories loaded:", userStories);
           setSavedStories(userStories);
         } catch (error) {
-          console.error("Error loading stories:", error);
+          console.error("[HomePage] Error loading stories:", error);
           setSavedStories([]);
+        } finally {
+          setStoriesLoading(false);
         }
+      } else {
+        console.log("[HomePage] No user, not loading stories");
+        setStoriesLoading(false);
       }
     };
 
@@ -79,11 +88,14 @@ export default function HomeScreen() {
     useCallback(() => {
       if (user) {
         const loadStories = async () => {
+          setStoriesLoading(true);
           try {
             const userStories = await getUserStories();
             setSavedStories(userStories);
           } catch (error) {
             console.error("Error loading stories:", error);
+          } finally {
+            setStoriesLoading(false);
           }
         };
         loadStories();
@@ -108,6 +120,7 @@ export default function HomeScreen() {
   sections.push({ type: "header", key: "header" });
 
   // Continue button - only show if there are saved stories
+  console.log("[HomePage] Continue button check:", { storiesLoading, savedStoriesLength: savedStories.length });
   if (!storiesLoading && savedStories.length > 0) {
     sections.push({ type: "continueButton", key: "continueButton" });
   }
