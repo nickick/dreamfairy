@@ -17,6 +17,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
+import { Ionicons } from "@expo/vector-icons";
+import { NetworkDiagnostics } from "@/components/NetworkDiagnostics";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -25,6 +27,7 @@ export default function LoginScreen() {
   const [isEmailSent, setIsEmailSent] = useState(false);
   const [showCaptcha, setShowCaptcha] = useState(false);
   const [captchaLoading, setCaptchaLoading] = useState(true);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
   const { signInWithEmail, signInAnonymously } = useAuth();
   const { theme, isDark } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
@@ -243,6 +246,39 @@ export default function LoginScreen() {
                   </ThemedText>
                 )}
               </TouchableOpacity>
+
+              {__DEV__ && (
+                <TouchableOpacity
+                  style={[
+                    styles.debugButton,
+                    {
+                      backgroundColor: '#FF6B6B',
+                      borderColor: colors.border,
+                      borderRadius: theme.styles.borderRadius,
+                      borderWidth: theme.styles.borderWidth,
+                    }
+                  ]}
+                  onPress={() => setShowDiagnostics(true)}
+                >
+                  <Ionicons 
+                    name="bug-outline" 
+                    size={20} 
+                    color="#FFF" 
+                    style={{ marginRight: 8 }}
+                  />
+                  <ThemedText
+                    style={[
+                      styles.debugText,
+                      {
+                        fontFamily: theme.fonts.button,
+                        color: '#FFF',
+                      },
+                    ]}
+                  >
+                    Network Diagnostics
+                  </ThemedText>
+                </TouchableOpacity>
+              )}
             </>
           ) : (
             <View style={styles.successContainer}>
@@ -602,6 +638,27 @@ export default function LoginScreen() {
           </View>
         </View>
       </Modal>
+
+      {__DEV__ && (
+        <Modal
+          visible={showDiagnostics}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowDiagnostics(false)}
+        >
+          <View style={styles.modalContainer}>
+            <View style={[styles.modalHeader, { backgroundColor: colors.primary }]}>
+              <ThemedText style={[styles.modalTitle, { fontFamily: theme.fonts.title, color: colors.text }]}>
+                Network Diagnostics
+              </ThemedText>
+              <TouchableOpacity onPress={() => setShowDiagnostics(false)}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            <NetworkDiagnostics />
+          </View>
+        </Modal>
+      )}
     </ThemedView>
   );
 }
@@ -744,5 +801,30 @@ const styles = StyleSheet.create({
   },
   cancelButtonText: {
     fontSize: 14,
+  },
+  debugButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginTop: 20,
+  },
+  debugText: {
+    fontSize: 14,
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: 50,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });

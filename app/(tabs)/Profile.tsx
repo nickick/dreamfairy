@@ -215,34 +215,36 @@ export default function ProfileScreen() {
           </ThemedText>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[
-            styles.debugButton,
-            {
-              backgroundColor: '#FF6B6B',
-              borderColor: colors.border,
-              borderRadius: theme.styles.borderRadius,
-              borderWidth: theme.styles.borderWidth,
-            }
-          ]}
-          onPress={() => setShowDiagnostics(true)}
-        >
-          <Ionicons 
-            name="bug-outline" 
-            size={20} 
-            color="#FFF" 
-            style={styles.signOutIcon}
-          />
-          <ThemedText style={[
-            styles.debugText,
-            { 
-              fontFamily: theme.fonts.button,
-              color: '#FFF'
-            }
-          ]}>
-            {t('networkDiagnostics')}
-          </ThemedText>
-        </TouchableOpacity>
+        {__DEV__ && (
+          <TouchableOpacity
+            style={[
+              styles.debugButton,
+              {
+                backgroundColor: '#FF6B6B',
+                borderColor: colors.border,
+                borderRadius: theme.styles.borderRadius,
+                borderWidth: theme.styles.borderWidth,
+              }
+            ]}
+            onPress={() => setShowDiagnostics(true)}
+          >
+            <Ionicons 
+              name="bug-outline" 
+              size={20} 
+              color="#FFF" 
+              style={styles.signOutIcon}
+            />
+            <ThemedText style={[
+              styles.debugText,
+              { 
+                fontFamily: theme.fonts.button,
+                color: '#FFF'
+              }
+            ]}>
+              {t('networkDiagnostics')}
+            </ThemedText>
+          </TouchableOpacity>
+        )}
 
         <ThemedText style={[
           styles.versionText,
