@@ -3,6 +3,7 @@ import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-nat
 import { ThemedText } from './ThemedText';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useTranslation } from '@/constants/translations';
 
 interface NarrationControlsProps {
   isLoading: boolean;
@@ -27,6 +28,7 @@ export function NarrationControls({
 }: NarrationControlsProps) {
   const { theme, isDark } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
+  const { t } = useTranslation();
 
   return (
     <View style={styles.container}>
@@ -57,7 +59,7 @@ export function NarrationControls({
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color={colors.text} />
                 <ThemedText style={[styles.loadingText, { fontFamily: theme.fonts.body, color: colors.text }]}>
-                  Loading...
+                  {t('loading')}
                 </ThemedText>
               </View>
             ) : (
@@ -109,7 +111,7 @@ export function NarrationControls({
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={colors.text} />
               <ThemedText style={[styles.loadingText, { fontFamily: theme.fonts.body, color: colors.text }]}>
-                Generating narration...
+                {t('voicingOver')}
               </ThemedText>
             </View>
           ) : (

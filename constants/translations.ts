@@ -29,6 +29,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     regenerateStory: "Regenerate Story",
     currentlyPlaying: "Currently Playing",
     playThisPart: "Play This Part",
+    voicingOver: "Voicing over...",
     
     // Errors
     errorLoadingStories: "Error loading stories",
@@ -74,6 +75,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     regenerateStory: "Gawing Muli ang Kuwento",
     currentlyPlaying: "Kasalukuyang Tumutugtog",
     playThisPart: "Tugtugin Ito",
+    voicingOver: "Binobosesan...",
     
     // Errors
     errorLoadingStories: "May error sa pag-load ng mga kuwento",
@@ -119,6 +121,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     regenerateStory: "重新生成故事",
     currentlyPlaying: "正在播放",
     playThisPart: "播放这一段",
+    voicingOver: "配音中...",
     
     // Errors
     errorLoadingStories: "加载故事时出错",
@@ -164,6 +167,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     regenerateStory: "重新生成故仔",
     currentlyPlaying: "播緊",
     playThisPart: "播呢一節",
+    voicingOver: "配緊音...",
     
     // Errors
     errorLoadingStories: "載入故仔時出錯",

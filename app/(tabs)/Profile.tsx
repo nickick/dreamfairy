@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, TouchableOpacity, StyleSheet, Alert, ScrollView, Modal } from 'react-native';
 import { ThemedView } from '@/components/ThemedView';
 import { ThemedText } from '@/components/ThemedText';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +7,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
+import { NetworkDiagnostics } from '@/components/NetworkDiagnostics';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
@@ -16,6 +17,7 @@ export default function ProfileScreen() {
   const [storyCount, setStoryCount] = useState(0);
   const [choiceCount, setChoiceCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -214,7 +216,55 @@ export default function ProfileScreen() {
         ]}>
           DreamFairy v1.0.0
         </ThemedText>
+
+        <TouchableOpacity
+          style={[
+            styles.debugButton,
+            {
+              backgroundColor: '#FF6B6B',
+              borderColor: colors.border,
+              borderRadius: theme.styles.borderRadius,
+              borderWidth: theme.styles.borderWidth,
+            }
+          ]}
+          onPress={() => setShowDiagnostics(true)}
+        >
+          <Ionicons 
+            name="bug-outline" 
+            size={20} 
+            color="#FFF" 
+            style={styles.signOutIcon}
+          />
+          <ThemedText style={[
+            styles.debugText,
+            { 
+              fontFamily: theme.fonts.button,
+              color: '#FFF'
+            }
+          ]}>
+            Network Diagnostics
+          </ThemedText>
+        </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={showDiagnostics}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowDiagnostics(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={[styles.modalHeader, { backgroundColor: colors.primary }]}>
+            <ThemedText style={[styles.modalTitle, { fontFamily: theme.fonts.title, color: colors.text }]}>
+              Network Diagnostics
+            </ThemedText>
+            <TouchableOpacity onPress={() => setShowDiagnostics(false)}>
+              <Ionicons name="close" size={24} color={colors.text} />
+            </TouchableOpacity>
+          </View>
+          <NetworkDiagnostics />
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -287,5 +337,30 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 'auto',
     marginBottom: 20,
+  },
+  debugButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    marginBottom: 24,
+    marginTop: 20,
+  },
+  debugText: {
+    fontSize: 14,
+  },
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    paddingTop: 50,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });
