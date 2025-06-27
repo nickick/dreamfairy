@@ -189,7 +189,7 @@ This will execute all tests using Deno, validating:
 - Authentication requirements for all Edge Functions
 - Input parameter validation
 - Response structure validation
-- 23 tests total covering all Edge Functions (including multi-language support)
+- 25 tests total covering all Edge Functions (including multi-language support)
 
 ## 🔧 Supabase Edge Functions
 
@@ -198,9 +198,10 @@ The app uses Supabase Edge Functions to securely handle AI API calls. All functi
 ### Available Endpoints
 
 1. **Generate Story** (`/functions/v1/generate-story`)
-   - Creates story content based on seed and history
-   - Request: `{ seed: string, history: string[] }`
+   - Creates story content based on seed and history in the selected language
+   - Request: `{ seed: string, history: string[], language?: "en" | "tl" | "zh" | "yue" }`
    - Response: `{ story: string, choices: string[] }`
+   - Supported languages: English (en), Tagalog (tl), Mandarin Chinese (zh), Cantonese (yue)
 
 2. **Generate Image** (`/functions/v1/generate-image`)
    - Creates illustrations for story nodes
@@ -256,6 +257,7 @@ curl -X POST http://localhost:54321/functions/v1/generate-story \
 - User authentication and profiles
 - Voice input for story choices (speech-to-text integration)
 - Multi-language support (English, Tagalog, Mandarin, Cantonese)
+- Multi-language story generation with AI
 
 ### In Development 🚧
 - Magic currency system backend

@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 interface StoryGenerationParams {
   seed: string;
   history: string[];
+  language?: "en" | "tl" | "zh" | "yue";
 }
 
 interface StoryGenerationResponse {

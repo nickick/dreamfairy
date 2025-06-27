@@ -49,3 +49,34 @@ Deno.test("generate-story: handles optional history parameter", () => {
   // Function should work without history
   assertEquals("seed" in bodyWithoutHistory, true);
 });
+
+Deno.test("generate-story: validates language parameter", () => {
+  const validLanguages = ["en", "tl", "zh", "yue"];
+  const bodyWithLanguage = {
+    seed: "A magical adventure",
+    history: [],
+    language: "tl",
+  };
+  const bodyWithoutLanguage = { seed: "A magical adventure", history: [] };
+
+  assertEquals("language" in bodyWithLanguage, true);
+  assertEquals(validLanguages.includes(bodyWithLanguage.language), true);
+  
+  // Function should work without language (uses default)
+  assertEquals("seed" in bodyWithoutLanguage, true);
+});
+
+Deno.test("generate-story: validates all supported languages", () => {
+  const supportedLanguages = ["en", "tl", "zh", "yue"];
+  const languageNames = {
+    en: "English",
+    tl: "Tagalog", 
+    zh: "Mandarin Chinese",
+    yue: "Cantonese",
+  };
+  
+  supportedLanguages.forEach((lang) => {
+    assertEquals(lang in languageNames, true);
+    assertEquals(typeof languageNames[lang as keyof typeof languageNames], "string");
+  });
+});

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { EdgeFunctions } from "@/lib/edgeFunctions";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 export interface StoryNode {
   story: string;
@@ -14,6 +15,7 @@ export function useGenerateStory(
   const [choices, setChoices] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { language } = useLanguage();
 
   const generate = useCallback(async () => {
     if (!seed) return;
@@ -25,6 +27,7 @@ export function useGenerateStory(
       const response = await EdgeFunctions.generateStory({
         seed,
         history,
+        language,
       });
       
       setStory(response.story);
@@ -34,7 +37,7 @@ export function useGenerateStory(
     } finally {
       setLoading(false);
     }
-  }, [seed, JSON.stringify(history)]);
+  }, [seed, JSON.stringify(history), language]);
 
   useEffect(() => {
     generate();
