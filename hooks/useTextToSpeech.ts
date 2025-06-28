@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Audio } from 'expo-av';
+import { useAudioPlayer, AudioModule, createAudioPlayer } from 'expo-audio';
 import { EdgeFunctions } from '@/lib/edgeFunctions';
 
 interface UseTextToSpeechReturn {
@@ -32,7 +32,7 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
   const [progress, setProgress] = useState(0);
   const [volume, setVolumeState] = useState(1.0);
   
-  const soundRef = useRef<Audio.Sound | null>(null);
+  const soundRef = useRef<any>(null);
   const currentTextRef = useRef<string>('');
   const currentVoiceRef = useRef<string>('');
   const lastAudioUrlRef = useRef<string | null>(null);
@@ -41,7 +41,7 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
   const setVolume = async (newVolume: number) => {
     const clampedVolume = Math.max(0, Math.min(1, newVolume));
     setVolumeState(clampedVolume);
-    if (soundRef.current) {
+    if (soundRef.current && soundRef.current.setVolumeAsync) {
       await soundRef.current.setVolumeAsync(clampedVolume);
     }
   };
@@ -53,7 +53,7 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
     const setupAudio = async () => {
       try {
         // First, ensure we have the proper category set
-        await Audio.setAudioModeAsync({
+        await AudioModule.setAudioModeAsync({
           playsInSilentModeIOS: true,
           staysActiveInBackground: true,
           shouldDuckAndroid: false,
@@ -74,8 +74,8 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
 
     // Cleanup
     return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
+      if (soundRef.current && soundRef.current.release) {
+        soundRef.current.release();
       }
     };
   }, []);
@@ -98,7 +98,7 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
       // Ensure audio is configured before playback
       if (!isAudioConfigured.current) {
         try {
-          await Audio.setAudioModeAsync({
+          await AudioModule.setAudioModeAsync({
             playsInSilentModeIOS: true,
             staysActiveInBackground: false,
             shouldDuckAndroid: false,
@@ -159,30 +159,24 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
         }
       }
 
-      // Create and load sound with current volume
-      const { sound, status } = await Audio.Sound.createAsync(
-        { uri: audioUri },
-        { 
-          shouldPlay: true,
-          volume: 1.0, // Force max volume
-          isMuted: false,
-          isLooping: false,
-          rate: 1.0,
-          shouldCorrectPitch: true,
-        },
-        onPlaybackStatusUpdate
-      );
-
-      // Ensure volume is set to max
-      await sound.setVolumeAsync(1.0);
+      // Create audio player
+      const sound = await createAudioPlayer(audioUri);
       
-      soundRef.current = sound;
+      // Set up playback monitoring
+      const checkPlayback = setInterval(async () => {
+        if (sound && sound.playing !== undefined) {
+          setIsPlaying(sound.playing);
+          if (sound.duration > 0) {
+            setProgress(sound.currentTime / sound.duration);
+          }
+        }
+      }, 100);
+      
+      soundRef.current = { player: sound, interval: checkPlayback };
+      
+      // Start playing
+      await sound.play();
       setIsPlaying(true);
-      
-      // Force play if not already playing
-      if (status && 'isLoaded' in status && status.isLoaded && !status.isPlaying) {
-        await sound.playAsync();
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate speech');
       console.error('TTS Error:', err);
@@ -207,15 +201,15 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
   };
 
   const pause = async () => {
-    if (soundRef.current) {
-      await soundRef.current.pauseAsync();
+    if (soundRef.current && soundRef.current.player) {
+      await soundRef.current.player.pause();
       setIsPlaying(false);
     }
   };
 
   const resume = async () => {
-    if (soundRef.current) {
-      await soundRef.current.playAsync();
+    if (soundRef.current && soundRef.current.player) {
+      await soundRef.current.player.play();
       setIsPlaying(true);
     } else if (currentTextRef.current) {
       // If no sound is loaded but we have the text, replay it from cache
@@ -225,8 +219,13 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
 
   const stop = async () => {
     if (soundRef.current) {
-      await soundRef.current.stopAsync();
-      await soundRef.current.unloadAsync();
+      if (soundRef.current.interval) {
+        clearInterval(soundRef.current.interval);
+      }
+      if (soundRef.current.player) {
+        await soundRef.current.player.pause();
+        soundRef.current.player.release();
+      }
       soundRef.current = null;
       setIsPlaying(false);
       setProgress(0);

@@ -19,10 +19,10 @@ interface RequestBody {
 
 // Language code mapping for Whisper API
 const LANGUAGE_CODES: Record<string, string> = {
-  en: "en",    // English
-  tl: "tl",    // Tagalog/Filipino
-  zh: "zh",    // Mandarin Chinese
-  yue: "zh",   // Cantonese (Whisper doesn't have specific Cantonese, use Chinese)
+  en: "en", // English
+  tl: "tl", // Tagalog/Filipino
+  zh: "zh", // Mandarin Chinese
+  yue: "zh", // Cantonese (Whisper doesn't have specific Cantonese, use Chinese)
 };
 
 async function correctTranscriptWithContext(
@@ -54,7 +54,9 @@ async function correctTranscriptWithContext(
         },
         {
           role: "user",
-          content: `Story context: "${storyContext}"\n\nTranscribed user choice in ${languageNames[language] || "English"}: "${transcript}"\n\nCorrected choice:`,
+          content: `Story context: "${storyContext}"\n\nTranscribed user choice in ${
+            languageNames[language] || "English"
+          }: "${transcript}"\n\nCorrected choice:`,
         },
       ],
       temperature: 0.3,
@@ -82,7 +84,11 @@ Deno.serve(async (req: Request) => {
       throw new Error("OPENAI_API_KEY not configured");
     }
 
-    const { audioData, storyContext, language = "en" }: RequestBody = await req.json();
+    const {
+      audioData,
+      storyContext,
+      language = "en",
+    }: RequestBody = await req.json();
 
     if (!audioData) {
       return new Response(JSON.stringify({ error: "Audio data is required" }), {
@@ -96,11 +102,50 @@ Deno.serve(async (req: Request) => {
     });
 
     // Convert base64 to Uint8Array
-    const audioBytes = Uint8Array.from(atob(audioData), (c) => c.charCodeAt(0));
+    let audioBytes: Uint8Array;
+    try {
+      audioBytes = Uint8Array.from(atob(audioData), (c) => c.charCodeAt(0));
+      console.log(`Audio data size: ${audioBytes.length} bytes`);
+    } catch (err) {
+      console.error("Error decoding base64 audio data:", err);
+      throw new Error("Invalid base64 audio data");
+    }
+
+    // Try to detect audio format from the first few bytes
+    let mimeType = "audio/m4a";
+    let extension = "m4a";
+
+    // Check for common audio file signatures
+    if (audioBytes.length > 8) {
+      const header = Array.from(audioBytes.slice(0, 8))
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+      console.log(`Audio file header: ${header}`);
+
+      if (header.startsWith("fff") || header.startsWith("494433")) {
+        // MP3 format
+        mimeType = "audio/mp3";
+        extension = "mp3";
+      } else if (header.startsWith("4f676753")) {
+        // OGG format
+        mimeType = "audio/ogg";
+        extension = "ogg";
+      } else if (header.startsWith("52494646")) {
+        // WAV format
+        mimeType = "audio/wav";
+        extension = "wav";
+      } else if (header.slice(8, 16) === "66747970") {
+        // M4A/MP4 format (checks for 'ftyp' at offset 4)
+        mimeType = "audio/m4a";
+        extension = "m4a";
+      }
+    }
+
+    console.log(`Detected audio format: ${mimeType} (${extension})`);
 
     // Create a File object from the audio bytes
-    const audioFile = new File([audioBytes], "recording.m4a", {
-      type: "audio/m4a",
+    const audioFile = new File([audioBytes], `recording.${extension}`, {
+      type: mimeType,
     });
 
     // Get the appropriate language code for Whisper
@@ -115,12 +160,38 @@ Deno.serve(async (req: Request) => {
     };
 
     // Transcribe using Whisper
-    const transcriptionResponse = await openai.audio.transcriptions.create({
-      file: audioFile,
-      model: "whisper-1",
-      language: whisperLanguage,
-      prompt: languagePrompts[language] || languagePrompts.en,
-    });
+    let transcriptionResponse;
+    try {
+      transcriptionResponse = await openai.audio.transcriptions.create({
+        file: audioFile,
+        model: "whisper-1",
+        language: whisperLanguage,
+        prompt: languagePrompts[language] || languagePrompts.en,
+      });
+    } catch (transcriptionError: any) {
+      console.error("Whisper transcription error:", transcriptionError);
+      console.error("Error details:", transcriptionError.error);
+      console.error("Audio file size:", audioFile.size);
+      console.error("Audio file type:", audioFile.type);
+
+      // Try without language specification as a fallback
+      try {
+        console.log("Retrying without language specification...");
+        transcriptionResponse = await openai.audio.transcriptions.create({
+          file: audioFile,
+          model: "whisper-1",
+        });
+      } catch (retryError) {
+        console.error("Retry failed:", retryError);
+        throw new Error(
+          `Transcription failed: ${
+            transcriptionError.message || "Unknown error"
+          }`
+        );
+      }
+    }
+
+    console.log("Final transcript:", transcriptionResponse.text);
 
     let finalTranscript = transcriptionResponse.text.trim();
 
