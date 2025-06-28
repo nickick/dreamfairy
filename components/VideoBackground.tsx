@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, StyleSheet, View } from 'react-native';
-import { Video, ResizeMode, AVPlaybackStatus } from 'expo-av';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { useTheme } from '@/contexts/ThemeContext';
 
 interface VideoBackgroundProps {
@@ -9,7 +9,11 @@ interface VideoBackgroundProps {
 }
 
 export function VideoBackground({ videoSource, isStoryPage = false }: VideoBackgroundProps) {
-  const videoRef = useRef<Video>(null);
+  const player = useVideoPlayer(videoSource, (player) => {
+    player.loop = true;
+    player.muted = true;
+    player.play();
+  });
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const blackFadeAnim = useRef(new Animated.Value(0)).current;
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
@@ -27,10 +31,14 @@ export function VideoBackground({ videoSource, isStoryPage = false }: VideoBackg
         // Then switch video source
         setCurrentSource(videoSource);
         setIsVideoLoaded(false);
+        // Replace the video source
+        player.replaceAsync(videoSource).then(() => {
+          player.play();
+        });
         // Keep black overlay while new video loads
       });
     }
-  }, [videoSource, currentSource, blackFadeAnim]);
+  }, [videoSource, currentSource, blackFadeAnim, player]);
 
   useEffect(() => {
     if (isVideoLoaded && currentSource === videoSource) {
@@ -43,25 +51,28 @@ export function VideoBackground({ videoSource, isStoryPage = false }: VideoBackg
     }
   }, [isVideoLoaded, currentSource, videoSource, blackFadeAnim]);
 
-  const handleVideoLoad = (status: AVPlaybackStatus) => {
-    if (status.isLoaded) {
-      setIsVideoLoaded(true);
-    }
-  };
+  // Monitor player status to detect when video is loaded
+  useEffect(() => {
+    const statusListener = player.addListener('statusChange', (status) => {
+      if (status === 'readyToPlay') {
+        setIsVideoLoaded(true);
+      }
+    });
+
+    return () => {
+      statusListener.remove();
+    };
+  }, [player]);
 
   return (
     <View style={styles.container}>
       <View style={[styles.blackBackground, { opacity: isDark ? 0.7 : 0.5 }]} />
       <View style={styles.videoContainer}>
-        <Video
-          ref={videoRef}
+        <VideoView
           style={styles.video}
-          source={currentSource}
-          resizeMode={ResizeMode.COVER}
-          shouldPlay
-          isLooping
-          isMuted
-          onPlaybackStatusUpdate={handleVideoLoad}
+          player={player}
+          contentFit="cover"
+          nativeControls={false}
         />
       </View>
       {/* Black fade overlay for transitions */}
