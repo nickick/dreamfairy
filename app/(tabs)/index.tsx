@@ -2,11 +2,13 @@ import { LanguageDropdown } from "@/components/LanguageDropdown";
 import { StoriesDrawer } from "@/components/StoriesDrawer";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { VideoBackground } from "@/components/VideoBackground";
 import {
   enchantedForestTheme,
   retroFutureTheme,
   storyThemeMap,
 } from "@/constants/Themes";
+import { getVideoForTheme } from "@/constants/VideoBackgrounds";
 import { useTranslation } from "@/constants/translations";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -45,7 +47,7 @@ export default function HomeScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { theme, setThemeName, isDark } = useTheme();
+  const { theme, themeName, setThemeName, isDark } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const { getUserStories } = useStoryPersistence();
   const { user } = useAuth();
@@ -280,10 +282,14 @@ export default function HomeScreen() {
     <SafeAreaView
       style={[styles.safeArea, { backgroundColor: colors.background }]}
     >
+      <VideoBackground 
+        videoSource={getVideoForTheme(themeName, 'homepage')} 
+        isStoryPage={false}
+      />
       <View style={styles.headerContainer}>
         <LanguageDropdown />
       </View>
-      <ThemedView style={styles.container}>
+      <ThemedView style={[styles.container, { backgroundColor: 'transparent' }]}>
         <FlatList
           data={sections}
           keyExtractor={(item) => item.key}

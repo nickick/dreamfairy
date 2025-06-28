@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { useCallback, useState } from "react";
+import { StoryHistoryItem } from "./useGenerateStory";
 
 export interface Story {
   id: string;
@@ -354,7 +355,7 @@ export function useStoryPersistence() {
         if (storyData) {
           const loadedSteps: Array<{ story: string; choice: string | null }> =
             [];
-          const loadedHistory: string[] = [];
+          const loadedHistory: StoryHistoryItem[] = [];
           const loadedNodeIds: string[] = [];
           const nodeDataMap = new Map();
 
@@ -368,9 +369,11 @@ export function useStoryPersistence() {
               story: node.story_text,
               choice: node.choice_made,
             });
-            if (node.choice_made) {
-              loadedHistory.push(node.choice_made);
-            }
+            // Add full story context to history
+            loadedHistory.push({
+              story: node.story_text,
+              choiceMade: node.choice_made,
+            });
             loadedNodeIds.push(node.id);
             // Store additional node data (like image URLs)
             nodeDataMap.set(node.node_index, {

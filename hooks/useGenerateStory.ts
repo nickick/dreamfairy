@@ -7,9 +7,14 @@ export interface StoryNode {
   choices: string[];
 }
 
+export interface StoryHistoryItem {
+  story: string;
+  choiceMade: string | null;
+}
+
 export function useGenerateStory(
   seed: string | undefined,
-  history: string[] = []
+  history: StoryHistoryItem[] = []
 ) {
   const [story, setStory] = useState<string | null>(null);
   const [choices, setChoices] = useState<string[]>([]);

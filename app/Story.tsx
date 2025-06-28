@@ -3,11 +3,13 @@ import { StoryNode } from "@/components/StoryNode";
 import { LoadingStates, StoryNodeLoader } from "@/components/StoryNodeLoader";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import { VideoBackground } from "@/components/VideoBackground";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { storyThemeMap } from "@/constants/Themes";
+import { getVideoForTheme } from "@/constants/VideoBackgrounds";
 import { useTranslation } from "@/constants/translations";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useGenerateStory } from "@/hooks/useGenerateStory";
+import { useGenerateStory, StoryHistoryItem } from "@/hooks/useGenerateStory";
 import { useStoryPersistence } from "@/hooks/useStoryPersistence";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { LinearGradient } from "expo-linear-gradient";
@@ -34,7 +36,8 @@ export default function StoryScreen() {
   const { seed, storyId } = useLocalSearchParams();
 
   const [steps, setSteps] = useState<StoryStep[]>([]); // Each step: {story, choice}
-  const [history, setHistory] = useState<string[]>([]); // Just the choices for the hook
+  const [history, setHistory] = useState<StoryHistoryItem[]>([]); // Full story context for the hook
+  const [pendingChoice, setPendingChoice] = useState<string | null>(null); // Track choice being processed
   const [currentNarrationIndex, setCurrentNarrationIndex] = useState<
     number | null
   >(null);
@@ -66,7 +69,7 @@ export default function StoryScreen() {
     new Animated.Value(CHOICES_PANE_HEIGHT)
   );
   const prevLoading = useRef(false);
-  const { theme, isDark, setThemeName } = useTheme();
+  const { theme, themeName, isDark, setThemeName } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const latestY = useRef<number | null>(null);
   const {
@@ -383,6 +386,8 @@ export default function StoryScreen() {
         }
 
         setSteps([{ story, choice: null }]);
+        // Don't set history here - it should remain empty until user makes a choice
+        // This prevents triggering another generation
         setCurrentNarrationIndex(0);
         setAutoPlayNodeIndex(0);
         // Keep loader visible until assets are generated
@@ -413,7 +418,7 @@ export default function StoryScreen() {
     ) {
       const saveNewNode = async () => {
         const nodeIndex = steps.length;
-        const choiceMade = history[history.length - 1];
+        const choiceMade = history[history.length - 1]?.choiceMade;
 
         // Save the new node with assets if available
         const node = await saveNode({
@@ -459,6 +464,7 @@ export default function StoryScreen() {
         setSteps((prev) => [...prev, { story, choice: choiceMade }]);
         setCurrentNarrationIndex(steps.length);
         setAutoPlayNodeIndex(steps.length);
+        setPendingChoice(null);
       };
 
       saveNewNode();
@@ -519,7 +525,16 @@ export default function StoryScreen() {
       narration: false,
       choices: false,
     });
-    setHistory((prev) => [...prev, choice]);
+    // Store the pending choice
+    setPendingChoice(choice);
+    
+    // Build the complete history including the current story and the choice being made
+    const currentHistory: StoryHistoryItem[] = steps.map((step, index) => ({
+      story: step.story,
+      choiceMade: index < steps.length - 1 ? steps[index + 1].choice : choice
+    }));
+    
+    setHistory(currentHistory);
   };
 
   const handleNarrationPlay = async () => {
@@ -584,6 +599,10 @@ export default function StoryScreen() {
     <ThemedView
       style={[styles.outerContainer, { backgroundColor: colors.background }]}
     >
+      <VideoBackground 
+        videoSource={getVideoForTheme(themeName, 'story')} 
+        isStoryPage={true}
+      />
       <NarrationNavbar
         currentStoryText={
           currentNarrationIndex !== null && steps[currentNarrationIndex]

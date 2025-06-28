@@ -1,8 +1,13 @@
 import { supabase } from './supabase';
 
+interface StoryHistoryItem {
+  story: string;
+  choiceMade: string | null;
+}
+
 interface StoryGenerationParams {
   seed: string;
-  history: string[];
+  history: StoryHistoryItem[];
   language?: "en" | "tl" | "zh" | "yue";
 }
 
