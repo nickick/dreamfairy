@@ -1,91 +1,102 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, StyleSheet, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { Dimensions, StyleSheet, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useVideoAsset } from '@/hooks/useVideoAsset';
 
 interface VideoBackgroundProps {
   videoSource: any;
   isStoryPage?: boolean;
 }
 
-export function VideoBackground({ videoSource, isStoryPage = false }: VideoBackgroundProps) {
-  const player = useVideoPlayer(videoSource, (player) => {
+function VideoPlayerComponent({ uri }: { uri: string }) {
+  console.log('[VideoPlayerComponent] Mounting with URI:', uri);
+  
+  const player = useVideoPlayer(uri, (player) => {
     player.loop = true;
     player.muted = true;
     player.play();
   });
-  const fadeAnim = useRef(new Animated.Value(1)).current;
-  const blackFadeAnim = useRef(new Animated.Value(0)).current;
-  const [isVideoLoaded, setIsVideoLoaded] = useState(false);
-  const [currentSource, setCurrentSource] = useState(videoSource);
-  const { isDark } = useTheme();
 
   useEffect(() => {
-    if (videoSource !== currentSource) {
-      // First fade to black
-      Animated.timing(blackFadeAnim, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }).start(() => {
-        // Then switch video source
-        setCurrentSource(videoSource);
-        setIsVideoLoaded(false);
-        // Replace the video source
-        player.replaceAsync(videoSource).then(() => {
+    const statusListener = player.addListener('statusChange', (status, error) => {
+      console.log('[VideoPlayer] Status:', status, 'Error:', error, 'for URI:', uri);
+      
+      if (error) {
+        console.error('[VideoPlayer] Error occurred:', error);
+        // Try to recover by playing again
+        setTimeout(() => {
           player.play();
-        });
-        // Keep black overlay while new video loads
-      });
-    }
-  }, [videoSource, currentSource, blackFadeAnim, player]);
-
-  useEffect(() => {
-    if (isVideoLoaded && currentSource === videoSource) {
-      // Fade out the black overlay when video is ready
-      Animated.timing(blackFadeAnim, {
-        toValue: 0,
-        duration: 500,
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [isVideoLoaded, currentSource, videoSource, blackFadeAnim]);
-
-  // Monitor player status to detect when video is loaded
-  useEffect(() => {
-    const statusListener = player.addListener('statusChange', (status) => {
-      if (status === 'readyToPlay') {
-        setIsVideoLoaded(true);
+        }, 500);
       }
     });
-
+    
+    // Ensure video starts playing
+    const playInterval = setInterval(() => {
+      if (player.status === 'readyToPlay' && !player.playing) {
+        console.log('[VideoPlayer] Starting playback');
+        player.play();
+      }
+    }, 1000);
+    
     return () => {
+      console.log('[VideoPlayerComponent] Unmounting URI:', uri);
       statusListener.remove();
+      clearInterval(playInterval);
     };
-  }, [player]);
+  }, [player, uri]);
+
+  return (
+    <VideoView
+      style={StyleSheet.absoluteFill}
+      player={player}
+      contentFit="cover"
+      nativeControls={false}
+    />
+  );
+}
+
+export function VideoBackground({ videoSource, isStoryPage = false }: VideoBackgroundProps) {
+  const [hasError, setHasError] = useState(false);
+  
+  // Convert module ID to URI
+  const { uri: videoUri, error: assetError } = useVideoAsset(videoSource);
+  
+  // Log the video source to debug
+  console.log('[VideoBackground] Video source:', videoSource, 'URI:', videoUri);
+  
+  const { theme, isDark } = useTheme();
+
+  // Handle asset loading errors
+  useEffect(() => {
+    if (assetError) {
+      console.error('[VideoBackground] Asset loading error:', assetError);
+      setHasError(true);
+    }
+  }, [assetError]);
 
   return (
     <View style={styles.container}>
-      <View style={[styles.blackBackground, { opacity: isDark ? 0.7 : 0.5 }]} />
-      <View style={styles.videoContainer}>
-        <VideoView
-          style={styles.video}
-          player={player}
-          contentFit="cover"
-          nativeControls={false}
-        />
-      </View>
-      {/* Black fade overlay for transitions */}
-      <Animated.View 
-        style={[
-          styles.blackBackground, 
-          { 
-            backgroundColor: '#000',
-            opacity: blackFadeAnim
-          }
-        ]} 
-        pointerEvents="none"
+      {/* Gradient fallback background */}
+      <LinearGradient
+        colors={theme.colors[isDark ? 'dark' : 'light'].gradientColors as any}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.gradientBackground}
       />
+      
+      <View style={[styles.blackBackground, { opacity: isDark ? 0.7 : 0.5 }]} />
+      
+      {/* Only show video if we have a URI and no error */}
+      {!hasError && videoUri && (
+        <View style={styles.videoContainer}>
+          <VideoPlayerComponent
+            key={videoUri} // Force remount when URI changes
+            uri={videoUri}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -120,5 +131,14 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  gradientBackground: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width,
+    height,
   },
 });

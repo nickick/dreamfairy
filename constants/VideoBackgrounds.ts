@@ -3,7 +3,8 @@ export interface ThemeVideos {
   story: any;
 }
 
-export const themeVideoMap: Record<'retroFuture' | 'enchantedForest', ThemeVideos> = {
+// Store the require() results which are module IDs
+const videoSources = {
   retroFuture: {
     homepage: require('@/assets/videos/retro-future-homepage.mp4'),
     story: require('@/assets/videos/retro-future-story.mp4'),
@@ -14,6 +15,8 @@ export const themeVideoMap: Record<'retroFuture' | 'enchantedForest', ThemeVideo
   },
 };
 
+export const themeVideoMap: Record<'retroFuture' | 'enchantedForest', ThemeVideos> = videoSources;
+
 export function getVideoForTheme(themeName: 'retroFuture' | 'enchantedForest', pageType: 'homepage' | 'story') {
-  return themeVideoMap[themeName][pageType];
+  return videoSources[themeName][pageType];
 }
