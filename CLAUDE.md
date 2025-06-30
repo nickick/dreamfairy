@@ -24,10 +24,19 @@ npm start
 
 ### Environment Setup
 
-Copy `.env.local.example` to `.env.local` and configure:
-- `EXPO_PUBLIC_SUPABASE_URL`: Use `http://127.0.0.1:54321` for local development
-- `EXPO_PUBLIC_SUPABASE_ANON_KEY`: From `npx supabase status`
-- API keys for OpenAI, GetImg.ai, ElevenLabs, and Runware
+The project uses `.env.local` for environment configuration.
+
+To run the development environment:
+```bash
+# Default (uses .env.local)
+npm start
+
+# Platform-specific commands
+npm run ios
+npm run android
+```
+
+Note: When testing with remote Supabase, manually update the values in `.env.local`.
 
 ### Testing
 
