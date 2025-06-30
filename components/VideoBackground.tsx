@@ -11,7 +11,6 @@ interface VideoBackgroundProps {
 }
 
 function VideoPlayerComponent({ uri }: { uri: string }) {
-  console.log('[VideoPlayerComponent] Mounting with URI:', uri);
   
   const player = useVideoPlayer(uri, (player) => {
     player.loop = true;
@@ -21,8 +20,6 @@ function VideoPlayerComponent({ uri }: { uri: string }) {
 
   useEffect(() => {
     const statusListener = player.addListener('statusChange', (status, error) => {
-      console.log('[VideoPlayer] Status:', status, 'Error:', error, 'for URI:', uri);
-      
       if (error) {
         console.error('[VideoPlayer] Error occurred:', error);
         // Try to recover by playing again
@@ -35,13 +32,11 @@ function VideoPlayerComponent({ uri }: { uri: string }) {
     // Ensure video starts playing
     const playInterval = setInterval(() => {
       if (player.status === 'readyToPlay' && !player.playing) {
-        console.log('[VideoPlayer] Starting playback');
         player.play();
       }
     }, 1000);
     
     return () => {
-      console.log('[VideoPlayerComponent] Unmounting URI:', uri);
       statusListener.remove();
       clearInterval(playInterval);
     };
@@ -63,15 +58,11 @@ export function VideoBackground({ videoSource, isStoryPage = false }: VideoBackg
   // Convert module ID to URI
   const { uri: videoUri, error: assetError } = useVideoAsset(videoSource);
   
-  // Log the video source to debug
-  console.log('[VideoBackground] Video source:', videoSource, 'URI:', videoUri);
-  
   const { theme, isDark } = useTheme();
 
   // Handle asset loading errors
   useEffect(() => {
     if (assetError) {
-      console.error('[VideoBackground] Asset loading error:', assetError);
       setHasError(true);
     }
   }, [assetError]);

@@ -31,11 +31,6 @@ export function useSpeechToText(): UseSpeechToTextReturn {
     const checkRecordingStatus = () => {
       // Update our state based on the recorder's actual state
       if (audioRecorder.isRecording !== isRecording) {
-        console.log("Recording state changed:", {
-          recorderState: audioRecorder.isRecording,
-          ourState: isRecording,
-          uri: audioRecorder.uri,
-        });
 
         // Only update if we're not in the middle of starting/stopping
         if (!recordingTimeoutRef.current) {
@@ -60,14 +55,10 @@ export function useSpeechToText(): UseSpeechToTextReturn {
       setError(null);
 
       // Check and request permissions
-      console.log("Checking recording permissions...");
       let status = await AudioModule.getRecordingPermissionsAsync();
-      console.log("Current permission status:", status);
 
       if (!status.granted) {
-        console.log("Permission not granted, requesting...");
         status = await AudioModule.requestRecordingPermissionsAsync();
-        console.log("Permission request result:", status);
       }
 
       if (!status.granted) {
@@ -83,25 +74,17 @@ export function useSpeechToText(): UseSpeechToTextReturn {
       });
 
       // Prepare recorder
-      console.log("Preparing recorder...");
       await audioRecorder.prepareToRecordAsync();
-      console.log("Recorder prepared");
 
       // Start recording - this starts the actual audio capture
-      console.log("Starting recording...");
       audioRecorder.record();
 
       // Set a timeout to check if recording actually started
       recordingTimeoutRef.current = setTimeout(() => {
-        console.log("Recording status check after timeout:", {
-          isRecording: audioRecorder.isRecording,
-          uri: audioRecorder.uri,
-        });
 
         // If the recorder says it's not recording but we think it should be,
         // force our state to match the recorder
         if (!audioRecorder.isRecording) {
-          console.warn("Recorder reports not recording, updating our state");
           setIsRecording(false);
         } else {
           // Double-check that we're actually recording
@@ -118,7 +101,6 @@ export function useSpeechToText(): UseSpeechToTextReturn {
         err instanceof Error ? err.message : "Failed to start recording";
       setError(errorMessage);
       console.error("Recording Error:", err);
-      console.error("Full error details:", JSON.stringify(err, null, 2));
 
       // Add helpful message for common issues
       if (errorMessage.includes("permission")) {
@@ -142,7 +124,6 @@ export function useSpeechToText(): UseSpeechToTextReturn {
     language: "en" | "tl" | "zh" | "yue" = "en"
   ) => {
     if (!isRecording) {
-      console.log("Not recording, skipping stop");
       return;
     }
 
@@ -156,11 +137,6 @@ export function useSpeechToText(): UseSpeechToTextReturn {
       setIsRecording(false);
 
       // Stop recording first
-      console.log("Stopping recording...");
-      console.log("Recorder state before stop:", {
-        isRecording: audioRecorder.isRecording,
-        uri: audioRecorder.uri,
-      });
 
       // Try to stop regardless of recorder state
       try {
@@ -172,11 +148,6 @@ export function useSpeechToText(): UseSpeechToTextReturn {
       // Get the URI from the recorder
       const uri = audioRecorder.uri;
 
-      console.log("Recording stopped, URI:", uri);
-      console.log("Recorder state after stop:", {
-        isRecording: audioRecorder.isRecording,
-        uri: audioRecorder.uri,
-      });
 
       if (!uri) {
         throw new Error("No recording URI available");
@@ -187,7 +158,6 @@ export function useSpeechToText(): UseSpeechToTextReturn {
 
       // Get file info to check format and size
       const fileInfo = await FileSystem.getInfoAsync(uri);
-      console.log("Recording file info:", fileInfo);
 
       if (!fileInfo.exists) {
         throw new Error("Recording file does not exist");
@@ -203,12 +173,9 @@ export function useSpeechToText(): UseSpeechToTextReturn {
       setIsTranscribing(true);
 
       // Read the audio file as base64
-      console.log("Reading audio file...");
       const audioBase64 = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
-
-      console.log("Audio base64 length:", audioBase64.length);
 
       // Clean up the audio file
       await FileSystem.deleteAsync(uri, { idempotent: true });

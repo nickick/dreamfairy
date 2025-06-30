@@ -191,8 +191,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    console.log("Final transcript:", transcriptionResponse.text);
-
     let finalTranscript = transcriptionResponse.text.trim();
 
     // If we have story context, use GPT to correct the transcript

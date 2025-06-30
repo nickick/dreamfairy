@@ -1,12 +1,16 @@
-import { useState, useEffect, useRef } from 'react';
-import { useAudioPlayer, AudioModule, createAudioPlayer } from 'expo-audio';
-import { EdgeFunctions } from '@/lib/edgeFunctions';
+import { EdgeFunctions } from "@/lib/edgeFunctions";
+import { AudioModule, createAudioPlayer } from "expo-audio";
+import { useEffect, useRef, useState } from "react";
 
 interface UseTextToSpeechReturn {
   isLoading: boolean;
   isPlaying: boolean;
   error: string | null;
-  speak: (text: string, voiceType?: 'narrator' | 'child' | 'fairy', existingAudioUrl?: string) => Promise<void>;
+  speak: (
+    text: string,
+    voiceType?: "narrator" | "child" | "fairy",
+    existingAudioUrl?: string
+  ) => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   stop: () => Promise<void>;
@@ -25,19 +29,24 @@ interface AudioCacheEntry {
 const audioCache = new Map<string, AudioCacheEntry>();
 const CACHE_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes
 
+// Clear cache if we detect local development URLs
+export function clearAudioCache() {
+  audioCache.clear();
+}
+
 export function useTextToSpeech(): UseTextToSpeechReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [volume, setVolumeState] = useState(1.0);
-  
+
   const soundRef = useRef<any>(null);
-  const currentTextRef = useRef<string>('');
-  const currentVoiceRef = useRef<string>('');
+  const currentTextRef = useRef<string>("");
+  const currentVoiceRef = useRef<string>("");
   const lastAudioUrlRef = useRef<string | null>(null);
   const isAudioConfigured = useRef(false);
-  
+
   const setVolume = async (newVolume: number) => {
     const clampedVolume = Math.max(0, Math.min(1, newVolume));
     setVolumeState(clampedVolume);
@@ -45,37 +54,36 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
       await soundRef.current.setVolumeAsync(clampedVolume);
     }
   };
-  
+
   const getLastAudioUrl = () => lastAudioUrlRef.current;
 
   useEffect(() => {
     // Configure audio session for optimal playback
     const setupAudio = async () => {
       try {
-        // First, ensure we have the proper category set
+        // Configure audio for playback (not recording)
         await AudioModule.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: true,
-          shouldDuckAndroid: false,
-          interruptionModeIOS: 1, // DO_NOT_MIX
-          interruptionModeAndroid: 1, // DO_NOT_MIX
-          playThroughEarpieceAndroid: false,
-          // Force audio to play through speaker
-          allowsRecordingIOS: false,
+          allowsRecording: false,
+          playsInSilentMode: true,
         });
-        
+
         isAudioConfigured.current = true;
       } catch (error) {
-        console.error('Error setting audio mode:', error);
+        console.error("Error setting audio mode:", error);
       }
     };
-    
+
     setupAudio();
 
     // Cleanup
     return () => {
-      if (soundRef.current && soundRef.current.release) {
-        soundRef.current.release();
+      if (soundRef.current) {
+        if (soundRef.current.interval) {
+          clearInterval(soundRef.current.interval);
+        }
+        if (soundRef.current.player && soundRef.current.player.release) {
+          soundRef.current.player.release();
+        }
       }
     };
   }, []);
@@ -90,78 +98,116 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
     }
   };
 
-  const speak = async (text: string, voiceType: 'narrator' | 'child' | 'fairy' = 'narrator', existingAudioUrl?: string) => {
+  const speak = async (
+    text: string,
+    voiceType: "narrator" | "child" | "fairy" = "narrator",
+    existingAudioUrl?: string
+  ) => {
     try {
       setIsLoading(true);
       setError(null);
 
-      // Ensure audio is configured before playback
-      if (!isAudioConfigured.current) {
-        try {
-          await AudioModule.setAudioModeAsync({
-            playsInSilentModeIOS: true,
-            staysActiveInBackground: false,
-            shouldDuckAndroid: false,
-            interruptionModeIOS: 1, // DO_NOT_MIX
-            interruptionModeAndroid: 1, // DO_NOT_MIX
-            playThroughEarpieceAndroid: false,
-            allowsRecordingIOS: false,
-          });
-          isAudioConfigured.current = true;
-        } catch (error) {
-          console.error('Error configuring audio in speak():', error);
-        }
+      // Always reconfigure audio for playback to ensure clean state
+      try {
+        await AudioModule.setAudioModeAsync({
+          allowsRecording: false,
+          playsInSilentMode: true,
+        });
+        isAudioConfigured.current = true;
+
+        // Small delay to ensure audio session is properly configured
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error("Error configuring audio in speak():", error);
       }
 
       // Stop any existing playback
       await stop();
 
-      // Store current text and voice for potential replay
+      // Store current text
       currentTextRef.current = text;
       currentVoiceRef.current = voiceType;
 
       let audioUri: string;
 
-      // If we have an existing audio URL, use it directly
+      // If we have an existing audio URL, check if it's valid
       if (existingAudioUrl) {
-        audioUri = existingAudioUrl;
-        lastAudioUrlRef.current = existingAudioUrl;
-      } else {
+        // Check if existing URL contains kong:8000
+        if (existingAudioUrl.includes('kong:8000')) {
+          existingAudioUrl = undefined;
+        } else {
+          audioUri = existingAudioUrl;
+          lastAudioUrlRef.current = existingAudioUrl;
+        }
+      }
+      
+      if (!existingAudioUrl) {
         // Create cache key
         const cacheKey = `${text}_${voiceType}`;
-        
+
         // Clean up old cache entries
         cleanupCache();
 
         // Check cache first
-        const cachedEntry = audioCache.get(cacheKey);
+        let cachedEntry = audioCache.get(cacheKey);
 
-        if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_EXPIRY_MS) {
-          // Use cached audio
-          audioUri = cachedEntry.audioUri;
-        } else {
+        if (
+          cachedEntry &&
+          Date.now() - cachedEntry.timestamp < CACHE_EXPIRY_MS
+        ) {
+          // Check if cached URL is invalid (kong:8000)
+          if (cachedEntry.audioUri.includes('kong:8000')) {
+            audioCache.delete(cacheKey);
+            cachedEntry = undefined;
+          } else {
+            // Use cached audio
+            audioUri = cachedEntry.audioUri;
+          }
+        }
+        
+        // If cache was invalidated or didn't exist, generate new audio
+        if (!cachedEntry || !audioUri) {
           // Generate new audio using Supabase edge function
           const response = await EdgeFunctions.textToSpeech({
             text,
             voiceType,
           });
 
-          audioUri = response.audioUrl;
+          // Handle the response from the edge function
+          if (response.audioUrl) {
+            // Use the Supabase Storage URL directly
+            audioUri = response.audioUrl;
+          } else if (response.audioData) {
+            // Fallback to data URL if only base64 is available
+            audioUri = `data:audio/mpeg;base64,${response.audioData}`;
+          } else {
+            throw new Error("No audio data received from text-to-speech API");
+          }
 
           // Cache the audio
           audioCache.set(cacheKey, {
             audioUri,
             timestamp: Date.now(),
           });
-          
+
           // Store the generated URL
           lastAudioUrlRef.current = audioUri;
         }
       }
 
       // Create audio player
+
+      if (!audioUri || audioUri.length === 0) {
+        throw new Error("Invalid audio URI provided");
+      }
+
       const sound = await createAudioPlayer(audioUri);
-      
+
+      // Validate the sound object
+      if (!sound || typeof sound.play !== "function") {
+        throw new Error("Failed to create valid audio player");
+      }
+
       // Set up playback monitoring
       const checkPlayback = setInterval(async () => {
         if (sound && sound.playing !== undefined) {
@@ -171,15 +217,17 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
           }
         }
       }, 100);
-      
+
       soundRef.current = { player: sound, interval: checkPlayback };
-      
+
       // Start playing
       await sound.play();
       setIsPlaying(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate speech');
-      console.error('TTS Error:', err);
+      setError(
+        err instanceof Error ? err.message : "Failed to generate speech"
+      );
+      console.error("TTS Error:", err);
     } finally {
       setIsLoading(false);
     }
@@ -189,13 +237,13 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
     if (status.isLoaded) {
       setProgress(status.positionMillis / status.durationMillis || 0);
       setIsPlaying(status.isPlaying);
-      
+
       if (status.didJustFinish) {
         setIsPlaying(false);
         setProgress(0);
       }
     } else if (status.error) {
-      console.error('Playback error:', status.error);
+      console.error("Playback error:", status.error);
       setError(status.error);
     }
   };
