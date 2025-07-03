@@ -1,11 +1,10 @@
 import { NarrationNavbar } from "@/components/NarrationNavbar";
+import { StoryChoices } from "@/components/StoryChoices";
 import { StoryNode } from "@/components/StoryNode";
 import { LoadingStates } from "@/components/StoryNodeLoader";
 import { StoryNodeLoaderWrapper } from "@/components/StoryNodeLoaderWrapper";
-import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { VideoBackground } from "@/components/VideoBackground";
-import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { storyThemeMap } from "@/constants/Themes";
 import { getVideoForTheme } from "@/constants/VideoBackgrounds";
 import { useTranslation } from "@/constants/translations";
@@ -13,17 +12,9 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { StoryHistoryItem, useGenerateStory } from "@/hooks/useGenerateStory";
 import { useStoryPersistence } from "@/hooks/useStoryPersistence";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
-import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Animated,
-  Easing,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Animated, Easing, ScrollView, StyleSheet } from "react-native";
 
 interface StoryStep {
   story: string;
@@ -295,6 +286,11 @@ export default function StoryScreen() {
                 imageUrl: imageResponse.imageUrl,
                 nodeIndex: latestNodeIndex,
               }));
+              setPendingNode((prev) =>
+                prev
+                  ? { ...prev, imageUrl: newImageUrl }
+                  : { story, choice: null, choices, imageUrl: newImageUrl }
+              );
             } catch (err) {
               console.error("[Story] Image generation failed:", err);
             } finally {
@@ -326,6 +322,16 @@ export default function StoryScreen() {
                 narrationUrl: narrationResponse.audioUrl,
                 nodeIndex: latestNodeIndex,
               }));
+              setPendingNode((prev) =>
+                prev
+                  ? { ...prev, narrationUrl: newNarrationUrl }
+                  : {
+                      story,
+                      choice: null,
+                      choices,
+                      narrationUrl: newNarrationUrl,
+                    }
+              );
             } catch (err) {
               console.error("[Story] Narration generation failed:", err);
             } finally {
@@ -558,10 +564,11 @@ export default function StoryScreen() {
       !steps.some((step) => step.story === story)
     ) {
       // Set pendingNode for the new story
+      console.log("[ATOMIC REVEAL] Setting pendingNode with choices:", choices);
       setPendingNode({
         story,
         choice: null, // or the current choice if available
-        choices,
+        choices, // ensure this is the actual choices array from the hook
       });
       // Mark text and choices as loaded immediately
       setLoadingStates((prev) => ({
@@ -594,7 +601,13 @@ export default function StoryScreen() {
                   imageUrl: newImageUrl,
                   narrationUrl: newNarrationUrl,
                 }
-              : prev
+              : {
+                  story,
+                  choice: null,
+                  choices,
+                  imageUrl: newImageUrl,
+                  narrationUrl: newNarrationUrl,
+                }
           );
         } catch (err) {
           console.error("[Story] Asset generation failed:", err);
@@ -614,6 +627,25 @@ export default function StoryScreen() {
 
   // When all assets are ready, move pendingNode to steps and auto-play narration
   useEffect(() => {
+    console.log("[ATOMIC REVEAL] Effect running", pendingNode);
+    if (pendingNode && pendingNode.choices.length > 0) {
+      console.log("[ATOMIC REVEAL] loadedChoices set:", pendingNode.choices);
+      setLoadedChoices(pendingNode.choices);
+    }
+
+    // Debug log all boolean conditions
+    console.log("[ATOMIC REVEAL] Condition checks:", {
+      hasPendingNode: !!pendingNode,
+      hasStory: !!pendingNode?.story,
+      hasChoices: !!(pendingNode?.choices && pendingNode.choices.length > 0),
+      hasImageUrl: !!pendingNode?.imageUrl,
+      hasNarrationUrl: !!pendingNode?.narrationUrl,
+      loadingText: loadingStates.text,
+      loadingChoices: loadingStates.choices,
+      loadingImage: loadingStates.image,
+      loadingNarration: loadingStates.narration,
+    });
+
     if (
       pendingNode &&
       pendingNode.story &&
@@ -643,6 +675,9 @@ export default function StoryScreen() {
         narrationUrlToPlay,
         choiceToSet,
       });
+      const choicesToSet = pendingNode.choices;
+      setLoadedChoices(choicesToSet);
+      console.log("[ATOMIC REVEAL] loadedChoices set:", choicesToSet);
       setSteps((prev) => {
         const newSteps = [...prev, { story: storyToPlay, choice: choiceToSet }];
         setTimeout(() => {
@@ -700,6 +735,29 @@ export default function StoryScreen() {
 
   // Calculate navbar height: controls height + padding (5+5) + border
   const navbarHeight = 40 + 10 + theme.styles.borderWidth;
+
+  // --- Refactor: Choices/gradient bar rendering logic ---
+  const shouldShowChoices =
+    !pendingNode &&
+    steps.length > 0 &&
+    ((loadedChoices && loadedChoices.length > 0) || loading || error);
+
+  let latestNodeReady = false;
+  if (shouldShowChoices) {
+    const latestIdx = steps.length - 1;
+    const nodeData = existingNodeData.get(latestIdx);
+    const hasExistingAssets = !!(nodeData?.imageUrl && nodeData?.narrationUrl);
+    const hasPendingAssets = !!(
+      pendingAssets &&
+      pendingAssets.nodeIndex === latestIdx &&
+      pendingAssets.imageUrl &&
+      pendingAssets.narrationUrl
+    );
+    latestNodeReady = hasExistingAssets || hasPendingAssets;
+  }
+
+  // Debug log for loadedChoices
+  console.log("[RENDER] loadedChoices:", loadedChoices);
 
   // On initial load with a seed, set pendingNode immediately
   useEffect(() => {
@@ -765,8 +823,64 @@ export default function StoryScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* If no nodes yet and pendingNode exists, show only the loader */}
-        {steps.length === 0 && pendingNode ? (
+        {/* Narrative nodes */}
+        {steps.map((step, idx) => {
+          const isLatestNode = idx === steps.length - 1;
+          const nodeData = existingNodeData.get(idx);
+          // Check if we have pending assets for this specific node
+          const imageUrl = nodeData?.imageUrl;
+          const narrationUrl = nodeData?.narrationUrl;
+
+          if (!imageUrl || !narrationUrl) {
+            return null;
+          }
+
+          return (
+            <StoryNode
+              key={idx}
+              story={step.story}
+              choice={step.choice}
+              isDark={isDark}
+              colors={colors}
+              theme={theme}
+              t={t}
+              onLayout={
+                isLatestNode
+                  ? (e) => (latestY.current = e.nativeEvent.layout.y)
+                  : undefined
+              }
+              isCurrentNarration={currentNarrationIndex === idx}
+              onSelectNarration={async () => {
+                setCurrentNarrationIndex(idx);
+                const existingNarrationUrl =
+                  existingNodeData.get(idx)?.narrationUrl;
+                await speak(step.story, "narrator", existingNarrationUrl);
+
+                // Save if new
+                if (!existingNarrationUrl) {
+                  const newAudioUrl = getLastAudioUrl();
+                  if (newAudioUrl && currentStoryId && nodeIds[idx]) {
+                    await updateNodeAssets(nodeIds[idx], {
+                      narration_url: newAudioUrl,
+                    });
+
+                    // Update local data
+                    const currentData = existingNodeData.get(idx) || {};
+                    existingNodeData.set(idx, {
+                      ...currentData,
+                      narrationUrl: newAudioUrl,
+                    });
+                  }
+                }
+              }}
+              nodeId={nodeIds[idx]}
+              storyId={currentStoryId || undefined}
+              existingImageUrl={imageUrl}
+            />
+          );
+        })}
+        {/* Strict atomic reveal: if pendingNode exists, always show only the loader after the last node */}
+        {pendingNode ? (
           <StoryNodeLoaderWrapper
             showLoader={true}
             steps={steps}
@@ -787,267 +901,18 @@ export default function StoryScreen() {
             style={{ marginVertical: 24 }}
           />
         ) : (
-          <>
-            {/* Narrative nodes */}
-            {steps.map((step, idx) => {
-              const isLatestNode = idx === steps.length - 1;
-              const nodeData = existingNodeData.get(idx);
-              // Check if we have pending assets for this specific node
-              const hasPendingAssetsForNode =
-                pendingAssets && pendingAssets.nodeIndex === idx;
-              const imageUrl =
-                hasPendingAssetsForNode && pendingAssets.imageUrl
-                  ? pendingAssets.imageUrl
-                  : nodeData?.imageUrl;
-              const narrationUrl =
-                hasPendingAssetsForNode && pendingAssets.narrationUrl
-                  ? pendingAssets.narrationUrl
-                  : nodeData?.narrationUrl;
-
-              return (
-                <StoryNode
-                  key={idx}
-                  story={step.story}
-                  choice={step.choice}
-                  isDark={isDark}
-                  colors={colors}
-                  theme={theme}
-                  t={t}
-                  onLayout={
-                    isLatestNode
-                      ? (e) => (latestY.current = e.nativeEvent.layout.y)
-                      : undefined
-                  }
-                  isCurrentNarration={currentNarrationIndex === idx}
-                  onSelectNarration={async () => {
-                    setCurrentNarrationIndex(idx);
-                    const existingNarrationUrl =
-                      existingNodeData.get(idx)?.narrationUrl;
-                    await speak(step.story, "narrator", existingNarrationUrl);
-
-                    // Save if new
-                    if (!existingNarrationUrl) {
-                      const newAudioUrl = getLastAudioUrl();
-                      if (newAudioUrl && currentStoryId && nodeIds[idx]) {
-                        await updateNodeAssets(nodeIds[idx], {
-                          narration_url: newAudioUrl,
-                        });
-
-                        // Update local data
-                        const currentData = existingNodeData.get(idx) || {};
-                        existingNodeData.set(idx, {
-                          ...currentData,
-                          narrationUrl: newAudioUrl,
-                        });
-                      }
-                    }
-                  }}
-                  nodeId={nodeIds[idx]}
-                  storyId={currentStoryId || undefined}
-                  existingImageUrl={imageUrl}
-                />
-              );
-            })}
-            {/* If pendingNode exists, show loader after the last node */}
-            {pendingNode && (
-              <StoryNodeLoaderWrapper
-                showLoader={true}
-                steps={steps}
-                loadingStates={loadingStates}
-                loading={loading}
-                ttsLoading={ttsLoading}
-                isPlaying={isPlaying}
-                hasNarratedCurrent={hasNarratedCurrent}
-                setShowLoader={setShowLoader}
-                setCurrentNarrationIndex={setCurrentNarrationIndex}
-                speak={speak}
-                setHasNarratedCurrent={setHasNarratedCurrent}
-                setAutoPlayNodeIndex={setAutoPlayNodeIndex}
-                autoPlayNodeIndex={autoPlayNodeIndex}
-                pendingAssets={pendingAssets}
-                existingNodeData={existingNodeData}
-                narrationTimeoutRef={narrationTimeoutRef}
-                style={{ marginVertical: 24 }}
-              />
-            )}
-            {/* Choices and divider below the latest narrative node */}
-            {((choices && choices.length > 0) ||
-              (loadedChoices && loadedChoices.length > 0) ||
-              loading ||
-              error) &&
-              !(() => {
-                // Hide choices if we're showing loader for the current node
-                if (!showLoader) return false;
-
-                if (steps.length === 0) return true; // Initial load
-
-                const latestIdx = steps.length - 1;
-                const nodeData = existingNodeData.get(latestIdx);
-                const hasExistingAssets = !!(
-                  nodeData?.imageUrl && nodeData?.narrationUrl
-                );
-                const hasPendingAssets = !!(
-                  pendingAssets &&
-                  pendingAssets.nodeIndex === latestIdx &&
-                  pendingAssets.imageUrl &&
-                  pendingAssets.narrationUrl
-                );
-                const hasAllAssets = hasExistingAssets || hasPendingAssets;
-
-                return !hasAllAssets || pendingNode; // Hide if assets aren't ready or pendingNode exists
-              })() && (
-                <>
-                  {!loading && error && (
-                    <View style={{ marginVertical: 24, alignItems: "center" }}>
-                      <ThemedText
-                        style={[styles.errorText, { color: colors.accent }]}
-                      >
-                        {error || "An error occurred"}
-                      </ThemedText>
-                      <TouchableOpacity
-                        onPress={regenerate}
-                        style={[
-                          styles.retryButton,
-                          {
-                            backgroundColor: colors.accent,
-                            borderColor: colors.border,
-                            borderRadius: theme.styles.borderRadius,
-                            borderWidth: theme.styles.borderWidth,
-                          },
-                        ]}
-                      >
-                        <ThemedText style={styles.retryButtonText}>
-                          Try Again
-                        </ThemedText>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                  {!loading &&
-                    !error &&
-                    ((choices && choices.length > 0) ||
-                      (loadedChoices && loadedChoices.length > 0)) && (
-                      <>
-                        {/* Gradient divider with record button */}
-                        <View style={styles.gradientBarContainer}>
-                          <LinearGradient
-                            colors={
-                              theme.colors[isDark ? "dark" : "light"]
-                                .gradientColors as any
-                            }
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={[
-                              styles.gradientBarInline,
-                              {
-                                borderColor: colors.border,
-                                borderRadius: theme.styles.borderRadius,
-                                borderWidth: theme.styles.borderWidth,
-                                flex: 1,
-                              },
-                            ]}
-                          >
-                            <ThemedText
-                              style={[
-                                styles.gradientBarText,
-                                {
-                                  fontFamily: theme.fonts.title,
-                                  color: isDark ? "#ffffff" : "#111",
-                                },
-                              ]}
-                            >
-                              {t("whatWillYouDoNext")}
-                            </ThemedText>
-                          </LinearGradient>
-                          <VoiceRecorder
-                            onTranscript={(text) => handleChoice(text)}
-                            disabled={loading}
-                            storyContext={
-                              steps.length > 0
-                                ? steps[steps.length - 1].story
-                                : ""
-                            }
-                          />
-                        </View>
-                        {/* Choices */}
-                        {(loadedChoices || choices || []).map((choice, idx) => (
-                          <TouchableOpacity
-                            key={idx}
-                            style={[
-                              styles.choiceButton,
-                              {
-                                backgroundColor: colors.secondary,
-                                borderColor: colors.border,
-                                borderRadius: theme.styles.borderRadius,
-                                borderWidth: theme.styles.borderWidth,
-                                shadowColor: colors.border,
-                                shadowOffset: theme.styles.shadowOffset,
-                                shadowOpacity: theme.styles.shadowOpacity,
-                                shadowRadius: theme.styles.shadowRadius,
-                              },
-                            ]}
-                            onPress={() => handleChoice(choice)}
-                          >
-                            <ThemedText
-                              style={[
-                                styles.choiceButtonText,
-                                {
-                                  fontFamily: theme.fonts.button,
-                                  color: colors.text,
-                                },
-                              ]}
-                            >
-                              {choice}
-                            </ThemedText>
-                          </TouchableOpacity>
-                        ))}
-                        {/* Divider with 'or' and regenerate button */}
-                        <View style={styles.orDividerContainerInline}>
-                          <ThemedText
-                            style={[
-                              styles.orText,
-                              {
-                                fontFamily: theme.fonts.body,
-                                backgroundColor: colors.background,
-                              },
-                            ]}
-                          >
-                            <>{t("or")}</>
-                          </ThemedText>
-                          <View style={styles.dividerLine} />
-                        </View>
-                        <TouchableOpacity
-                          onPress={regenerate}
-                          style={[
-                            styles.regenButtonSmall,
-                            {
-                              backgroundColor: colors.accent,
-                              borderColor: colors.border,
-                              borderRadius: theme.styles.borderRadius,
-                              borderWidth: theme.styles.borderWidth,
-                              shadowColor: colors.border,
-                              shadowOffset: theme.styles.shadowOffset,
-                              shadowOpacity: theme.styles.shadowOpacity,
-                              shadowRadius: theme.styles.shadowRadius,
-                            },
-                          ]}
-                        >
-                          <ThemedText
-                            style={[
-                              styles.regenButtonSmallText,
-                              {
-                                fontFamily: theme.fonts.button,
-                                color: isDark ? "#000" : "#000",
-                              },
-                            ]}
-                          >
-                            {t("regenerateStory")}
-                          </ThemedText>
-                        </TouchableOpacity>
-                      </>
-                    )}
-                </>
-              )}
-          </>
+          <StoryChoices
+            choices={loadedChoices || []}
+            loading={loading}
+            error={error}
+            onChoice={handleChoice}
+            onRegenerate={regenerate}
+            theme={theme}
+            isDark={isDark}
+            colors={colors}
+            t={t}
+            steps={steps}
+          />
         )}
       </ScrollView>
     </ThemedView>
