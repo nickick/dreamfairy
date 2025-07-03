@@ -643,7 +643,6 @@ export default function StoryScreen() {
         "narrator",
         existingNarrationUrl
       );
-      setNarrationPending(false);
       // If we generated a new narration, save it to the database
       if (!existingNarrationUrl) {
         const newAudioUrl = getLastAudioUrl();
@@ -664,26 +663,6 @@ export default function StoryScreen() {
 
   // Calculate navbar height: controls height + padding (5+5) + border
   const navbarHeight = 40 + 10 + theme.styles.borderWidth;
-
-  // --- Refactor: Choices/gradient bar rendering logic ---
-  const shouldShowChoices =
-    !pendingNode &&
-    steps.length > 0 &&
-    ((loadedChoices && loadedChoices.length > 0) || loading || error);
-
-  let latestNodeReady = false;
-  if (shouldShowChoices) {
-    const latestIdx = steps.length - 1;
-    const nodeData = existingNodeData.get(latestIdx);
-    const hasExistingAssets = !!(nodeData?.imageUrl && nodeData?.narrationUrl);
-    const hasPendingAssets = !!(
-      pendingAssets &&
-      pendingAssets.nodeIndex === latestIdx &&
-      pendingAssets.imageUrl &&
-      pendingAssets.narrationUrl
-    );
-    latestNodeReady = hasExistingAssets || hasPendingAssets;
-  }
 
   // On initial load with a seed, set pendingNode immediately
   useEffect(() => {
@@ -720,10 +699,52 @@ export default function StoryScreen() {
     if (pendingNode && pendingNode.story && !pendingNode.narrationUrl) {
       setNarrationPending(true);
     }
-    if (pendingNode && pendingNode.narrationUrl) {
-      setNarrationPending(false);
-    }
   }, [pendingNode]);
+
+  // Add effect to clear narrationPending when playback starts or errors
+  useEffect(() => {
+    if (isPlaying || ttsError) {
+      if (progress > 0) {
+        setNarrationPending(false);
+      }
+    }
+  }, [isPlaying, ttsError, progress]);
+
+  const handleSelectNarration = async (idx: number) => {
+    setCurrentNarrationIndex(idx);
+    const existingNarrationUrl = existingNodeData.get(idx)?.narrationUrl;
+    await speak(steps[idx].story, "narrator", existingNarrationUrl);
+
+    // Save if new
+    if (!existingNarrationUrl) {
+      const newAudioUrl = getLastAudioUrl();
+      if (newAudioUrl && currentStoryId && nodeIds[idx]) {
+        await updateNodeAssets(nodeIds[idx], {
+          narration_url: newAudioUrl,
+        });
+
+        // Update local data
+        const currentData = existingNodeData.get(idx) || {};
+        existingNodeData.set(idx, {
+          ...currentData,
+          narrationUrl: newAudioUrl,
+        });
+      }
+    }
+  };
+
+  // Clear pendingNode when all loading states are complete
+  useEffect(() => {
+    if (
+      loadingStates.text &&
+      loadingStates.image &&
+      loadingStates.narration &&
+      loadingStates.choices &&
+      pendingNode
+    ) {
+      setPendingNode(null);
+    }
+  }, [loadingStates]);
 
   return (
     <ThemedView
@@ -787,29 +808,7 @@ export default function StoryScreen() {
                   : undefined
               }
               isCurrentNarration={currentNarrationIndex === idx}
-              onSelectNarration={async () => {
-                setCurrentNarrationIndex(idx);
-                const existingNarrationUrl =
-                  existingNodeData.get(idx)?.narrationUrl;
-                await speak(step.story, "narrator", existingNarrationUrl);
-
-                // Save if new
-                if (!existingNarrationUrl) {
-                  const newAudioUrl = getLastAudioUrl();
-                  if (newAudioUrl && currentStoryId && nodeIds[idx]) {
-                    await updateNodeAssets(nodeIds[idx], {
-                      narration_url: newAudioUrl,
-                    });
-
-                    // Update local data
-                    const currentData = existingNodeData.get(idx) || {};
-                    existingNodeData.set(idx, {
-                      ...currentData,
-                      narrationUrl: newAudioUrl,
-                    });
-                  }
-                }
-              }}
+              onSelectNarration={() => handleSelectNarration(idx)}
               nodeId={nodeIds[idx]}
               storyId={currentStoryId || undefined}
               existingImageUrl={imageUrl}
@@ -819,7 +818,6 @@ export default function StoryScreen() {
         {/* Strict atomic reveal: if pendingNode exists, always show only the loader after the last node */}
         {pendingNode ? (
           <StoryNodeLoaderWrapper
-            showLoader={true}
             steps={steps}
             loadingStates={loadingStates}
             loading={loading}

@@ -29,6 +29,7 @@ export const StoryChoices: React.FC<StoryChoicesProps> = ({
   t,
   steps,
 }) => {
+  console.log("[RENDER] choices:", choices);
   return (
     <>
       {/* Gradient divider with record button */}

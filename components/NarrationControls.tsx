@@ -41,143 +41,131 @@ export function NarrationControls({
 
   return (
     <View style={styles.container}>
-      {(isPlaying || progress > 0) && (
-        <View style={styles.progressWrapper}>
-          <View
+      {showLoading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color={colors.text} />
+          <ThemedText
             style={[
-              styles.progressBar,
-              {
-                backgroundColor: colors.border,
-                borderRadius: theme.styles.borderRadius / 2,
-              },
+              styles.loadingText,
+              { fontFamily: theme.fonts.body, color: colors.text },
             ]}
           >
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  width: `${progress * 100}%`,
-                  backgroundColor: colors.accent,
-                  borderRadius: theme.styles.borderRadius / 2,
-                },
-              ]}
-            />
-          </View>
-          <View style={styles.controlsWrapper}>
-            {showLoading ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={colors.text} />
-                <ThemedText
+            {t("voicingOver")}
+          </ThemedText>
+        </View>
+      ) : (
+        <>
+          {(isPlaying || progress > 0) && (
+            <View style={styles.progressWrapper}>
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    backgroundColor: colors.border,
+                    borderRadius: theme.styles.borderRadius / 2,
+                  },
+                ]}
+              >
+                <View
                   style={[
-                    styles.loadingText,
-                    { fontFamily: theme.fonts.body, color: colors.text },
-                  ]}
-                >
-                  {t("voicingOver")}
-                </ThemedText>
-              </View>
-            ) : (
-              <View style={styles.buttonsContainer}>
-                <TouchableOpacity
-                  onPress={isPlaying ? onPause : onPlay}
-                  style={[
-                    styles.button,
+                    styles.progressFill,
                     {
+                      width: `${progress * 100}%`,
                       backgroundColor: colors.accent,
-                      borderColor: colors.border,
-                      borderWidth: theme.styles.borderWidth,
-                      borderRadius: theme.styles.borderRadius,
+                      borderRadius: theme.styles.borderRadius / 2,
                     },
                   ]}
-                >
-                  <Ionicons
-                    name={isPlaying ? "pause" : "play"}
-                    size={16}
-                    color={isDark ? "#000" : "#000"}
-                  />
-                </TouchableOpacity>
-
-                {isPlaying && (
+                />
+              </View>
+              <View style={styles.controlsWrapper}>
+                <View style={styles.buttonsContainer}>
                   <TouchableOpacity
-                    onPress={onStop}
+                    onPress={isPlaying ? onPause : onPlay}
                     style={[
                       styles.button,
                       {
-                        backgroundColor: colors.secondary,
+                        backgroundColor: colors.accent,
                         borderColor: colors.border,
                         borderWidth: theme.styles.borderWidth,
                         borderRadius: theme.styles.borderRadius,
                       },
                     ]}
                   >
-                    <Ionicons name="stop" size={16} color={colors.text} />
+                    <Ionicons
+                      name={isPlaying ? "pause" : "play"}
+                      size={16}
+                      color={isDark ? "#000" : "#000"}
+                    />
                   </TouchableOpacity>
-                )}
+
+                  {isPlaying && (
+                    <TouchableOpacity
+                      onPress={onStop}
+                      style={[
+                        styles.button,
+                        {
+                          backgroundColor: colors.secondary,
+                          borderColor: colors.border,
+                          borderWidth: theme.styles.borderWidth,
+                          borderRadius: theme.styles.borderRadius,
+                        },
+                      ]}
+                    >
+                      <Ionicons name="stop" size={16} color={colors.text} />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-            )}
-          </View>
-        </View>
+            </View>
+          )}
+        </>
       )}
 
-      {!isPlaying && progress === 0 && (
+      {!isPlaying && progress === 0 && !showLoading && (
         <View style={styles.standaloneControls}>
-          {showLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color={colors.text} />
+          <>
+            {currentStoryText ? (
               <ThemedText
                 style={[
-                  styles.loadingText,
-                  { fontFamily: theme.fonts.body, color: colors.text },
-                ]}
-              >
-                {t("voicingOver")}
-              </ThemedText>
-            </View>
-          ) : (
-            <>
-              {currentStoryText ? (
-                <ThemedText
-                  style={[
-                    styles.textPreview,
-                    {
-                      fontFamily: theme.fonts.body,
-                      color: colors.text,
-                      opacity: 0.7,
-                    },
-                  ]}
-                  numberOfLines={1}
-                >
-                  {currentStoryText.slice(0, 60)}...
-                </ThemedText>
-              ) : (
-                <View style={{ flex: 1 }} />
-              )}
-              <TouchableOpacity
-                onPress={onPlay}
-                style={[
-                  styles.button,
+                  styles.textPreview,
                   {
-                    backgroundColor: currentStoryText
-                      ? colors.accent
-                      : colors.secondary,
-                    borderColor: colors.border,
-                    borderWidth: theme.styles.borderWidth,
-                    borderRadius: theme.styles.borderRadius,
-                    opacity: currentStoryText ? 1 : 0.5,
+                    fontFamily: theme.fonts.body,
+                    color: colors.text,
+                    opacity: 0.7,
                   },
                 ]}
-                disabled={!currentStoryText}
+                numberOfLines={1}
               >
-                <Ionicons
-                  name="play"
-                  size={16}
-                  color={
-                    currentStoryText ? (isDark ? "#000" : "#000") : colors.text
-                  }
-                />
-              </TouchableOpacity>
-            </>
-          )}
+                {currentStoryText.slice(0, 60)}...
+              </ThemedText>
+            ) : (
+              <View style={{ flex: 1 }} />
+            )}
+            <TouchableOpacity
+              onPress={onPlay}
+              style={[
+                styles.button,
+                {
+                  backgroundColor: currentStoryText
+                    ? colors.accent
+                    : colors.secondary,
+                  borderColor: colors.border,
+                  borderWidth: theme.styles.borderWidth,
+                  borderRadius: theme.styles.borderRadius,
+                  opacity: currentStoryText ? 1 : 0.5,
+                },
+              ]}
+              disabled={!currentStoryText}
+            >
+              <Ionicons
+                name="play"
+                size={16}
+                color={
+                  currentStoryText ? (isDark ? "#000" : "#000") : colors.text
+                }
+              />
+            </TouchableOpacity>
+          </>
         </View>
       )}
 

@@ -2,7 +2,6 @@ import React, { MutableRefObject } from "react";
 import { StoryNodeLoader } from "./StoryNodeLoader";
 
 interface StoryNodeLoaderWrapperProps {
-  showLoader: boolean;
   steps: { story: string }[];
   loadingStates: any;
   loading: boolean;
@@ -26,7 +25,6 @@ interface StoryNodeLoaderWrapperProps {
 }
 
 export const StoryNodeLoaderWrapper: React.FC<StoryNodeLoaderWrapperProps> = ({
-  showLoader,
   steps,
   loadingStates,
   loading,
@@ -44,8 +42,6 @@ export const StoryNodeLoaderWrapper: React.FC<StoryNodeLoaderWrapperProps> = ({
   narrationTimeoutRef,
   style,
 }) => {
-  if (!showLoader) return null;
-
   if (steps.length === 0) {
     // Show loader even when no steps yet (initial load)
     return (
