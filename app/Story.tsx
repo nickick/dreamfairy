@@ -9,7 +9,7 @@ import { storyThemeMap } from "@/constants/Themes";
 import { getVideoForTheme } from "@/constants/VideoBackgrounds";
 import { useTranslation } from "@/constants/translations";
 import { useTheme } from "@/contexts/ThemeContext";
-import { useGenerateStory, StoryHistoryItem } from "@/hooks/useGenerateStory";
+import { StoryHistoryItem, useGenerateStory } from "@/hooks/useGenerateStory";
 import { useStoryPersistence } from "@/hooks/useStoryPersistence";
 import { useTextToSpeech } from "@/hooks/useTextToSpeech";
 import { LinearGradient } from "expo-linear-gradient";
@@ -527,13 +527,13 @@ export default function StoryScreen() {
     });
     // Store the pending choice
     setPendingChoice(choice);
-    
+
     // Build the complete history including the current story and the choice being made
     const currentHistory: StoryHistoryItem[] = steps.map((step, index) => ({
       story: step.story,
-      choiceMade: index < steps.length - 1 ? steps[index + 1].choice : choice
+      choiceMade: index < steps.length - 1 ? steps[index + 1].choice : choice,
     }));
-    
+
     setHistory(currentHistory);
   };
 
@@ -599,8 +599,8 @@ export default function StoryScreen() {
     <ThemedView
       style={[styles.outerContainer, { backgroundColor: colors.background }]}
     >
-      <VideoBackground 
-        videoSource={getVideoForTheme(themeName, 'story')} 
+      <VideoBackground
+        videoSource={getVideoForTheme(themeName, "story")}
         isStoryPage={true}
       />
       <NarrationNavbar
@@ -893,7 +893,7 @@ export default function StoryScreen() {
                             styles.gradientBarText,
                             {
                               fontFamily: theme.fonts.title,
-                              color: isDark ? "#111" : "#111",
+                              color: isDark ? "#ffffff" : "#111",
                             },
                           ]}
                         >
@@ -1001,7 +1001,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
   scrollContainer: {
-    padding: 24,
+    paddingHorizontal: 5,
+    paddingTop: 24,
     paddingBottom: 120,
     alignItems: "center",
   },
@@ -1211,9 +1212,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     width: "100%",
-    marginTop: 16,
-    marginBottom: 20,
     gap: 5,
+    marginTop: 0,
+    marginBottom: 5,
   },
   orDividerContainerInline: {
     alignItems: "center",

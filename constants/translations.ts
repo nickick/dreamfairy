@@ -1,4 +1,4 @@
-import { LanguageCode } from '@/contexts/LanguageContext';
+import { LanguageCode } from "@/contexts/LanguageContext";
 
 export const translations: Record<LanguageCode, Record<string, string>> = {
   en: {
@@ -11,13 +11,13 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     noStories: "No saved stories yet",
     refresh: "Refresh",
     loading: "Loading...",
-    
+
     // Story seeds
     "A magical forest adventure": "A magical forest adventure",
-    "A lost robot in space": "A lost robot in space", 
+    "A lost robot in space": "A lost robot in space",
     "The secret life of a city cat": "The secret life of a city cat",
     "A fairy's quest to save the moon": "A fairy's quest to save the moon",
-    
+
     // Story Screen
     chooseYourPath: "Choose your path:",
     theEnd: "The End",
@@ -30,22 +30,23 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     currentlyPlaying: "Currently Playing",
     playThisPart: "Play This Part",
     voicingOver: "Voicing over...",
-    
+
     // Errors
     errorLoadingStories: "Error loading stories",
     errorGeneratingStory: "Error generating story",
     errorGeneratingImage: "Error generating image",
-    
+
     // Stories Drawer
     continueYourAdventures: "Continue Your Adventures",
     noSavedStoriesYet: "No saved stories yet. Start a new adventure!",
     deleteStory: "Delete Story",
-    deleteStoryConfirm: "Are you sure you want to delete \"{title}\"? This action cannot be undone.",
+    deleteStoryConfirm:
+      'Are you sure you want to delete "{title}"? This action cannot be undone.',
     deleteStoryError: "Failed to delete story. Please try again.",
     cancel: "Cancel",
     delete: "Delete",
     error: "Error",
-    
+
     // Profile Screen
     guestUser: "Guest User",
     stories: "Stories",
@@ -54,7 +55,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     signOutConfirm: "Are you sure you want to sign out?",
     networkDiagnostics: "Network Diagnostics",
   },
-  
+
   tl: {
     // Home Screen
     welcome: "Maligayang pagdating sa",
@@ -65,13 +66,15 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     noStories: "Wala pang naka-save na kuwento",
     refresh: "I-refresh",
     loading: "Nag-lo-load...",
-    
+
     // Story seeds
     "A magical forest adventure": "Isang mahiwagang adventure sa kagubatan",
     "A lost robot in space": "Isang nawawalang robot sa kalawakan",
-    "The secret life of a city cat": "Ang lihim na buhay ng isang pusa sa lungsod",
-    "A fairy's quest to save the moon": "Ang misyon ng diwata para iligtas ang buwan",
-    
+    "The secret life of a city cat":
+      "Ang lihim na buhay ng isang pusa sa lungsod",
+    "A fairy's quest to save the moon":
+      "Ang misyon ng diwata para iligtas ang buwan",
+
     // Story Screen
     chooseYourPath: "Piliin ang iyong daan:",
     theEnd: "Wakas",
@@ -84,22 +87,24 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     currentlyPlaying: "Kasalukuyang Tumutugtog",
     playThisPart: "Tugtugin Ito",
     voicingOver: "Binobosesan...",
-    
+
     // Errors
     errorLoadingStories: "May error sa pag-load ng mga kuwento",
     errorGeneratingStory: "May error sa paggawa ng kuwento",
     errorGeneratingImage: "May error sa paggawa ng larawan",
-    
+
     // Stories Drawer
     continueYourAdventures: "Ipagpatuloy ang Iyong Adventures",
-    noSavedStoriesYet: "Wala pang naka-save na kuwento. Magsimula ng bagong adventure!",
+    noSavedStoriesYet:
+      "Wala pang naka-save na kuwento. Magsimula ng bagong adventure!",
     deleteStory: "Burahin ang Kuwento",
-    deleteStoryConfirm: "Sigurado ka bang gusto mong burahin ang \"{title}\"? Hindi na ito maibabalik.",
+    deleteStoryConfirm:
+      'Sigurado ka bang gusto mong burahin ang "{title}"? Hindi na ito maibabalik.',
     deleteStoryError: "Hindi nabura ang kuwento. Subukan ulit.",
     cancel: "Kanselahin",
     delete: "Burahin",
     error: "Error",
-    
+
     // Profile Screen
     guestUser: "Guest User",
     stories: "Mga Kuwento",
@@ -108,7 +113,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     signOutConfirm: "Sigurado ka bang gusto mong mag-sign out?",
     networkDiagnostics: "Network Diagnostics",
   },
-  
+
   zh: {
     // Home Screen
     welcome: "欢迎来到",
@@ -119,13 +124,13 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     noStories: "还没有保存的故事",
     refresh: "刷新",
     loading: "加载中...",
-    
+
     // Story seeds
     "A magical forest adventure": "一个神奇的森林冒险",
     "A lost robot in space": "太空中迷失的机器人",
     "The secret life of a city cat": "城市猫的秘密生活",
     "A fairy's quest to save the moon": "精灵拯救月亮的任务",
-    
+
     // Story Screen
     chooseYourPath: "选择你的道路：",
     theEnd: "结束",
@@ -138,22 +143,22 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     currentlyPlaying: "正在播放",
     playThisPart: "播放这一段",
     voicingOver: "配音中...",
-    
+
     // Errors
     errorLoadingStories: "加载故事时出错",
     errorGeneratingStory: "生成故事时出错",
     errorGeneratingImage: "生成图片时出错",
-    
+
     // Stories Drawer
     continueYourAdventures: "继续你的冒险",
     noSavedStoriesYet: "还没有保存的故事。开始新的冒险吧！",
     deleteStory: "删除故事",
-    deleteStoryConfirm: "确定要删除 \"{title}\" 吗？此操作无法撤销。",
+    deleteStoryConfirm: '确定要删除 "{title}" 吗？此操作无法撤销。',
     deleteStoryError: "删除故事失败。请重试。",
     cancel: "取消",
     delete: "删除",
     error: "错误",
-    
+
     // Profile Screen
     guestUser: "访客用户",
     stories: "故事",
@@ -162,7 +167,7 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     signOutConfirm: "确定要退出登录吗？",
     networkDiagnostics: "网络诊断",
   },
-  
+
   yue: {
     // Home Screen
     welcome: "歡迎嚟到",
@@ -173,13 +178,13 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     noStories: "仲未有保存嘅故仔",
     refresh: "刷新",
     loading: "載入緊...",
-    
+
     // Story seeds
     "A magical forest adventure": "一個神奇嘅森林冒險",
     "A lost robot in space": "太空入面迷失嘅機械人",
     "The secret life of a city cat": "城市貓嘅秘密生活",
     "A fairy's quest to save the moon": "精靈拯救月亮嘅任務",
-    
+
     // Story Screen
     chooseYourPath: "揀你嘅路：",
     theEnd: "完",
@@ -192,22 +197,22 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
     currentlyPlaying: "播緊",
     playThisPart: "播呢一節",
     voicingOver: "配緊音...",
-    
+
     // Errors
     errorLoadingStories: "載入故仔時出錯",
-    errorGeneratingStory: "生成故仔時出錯", 
+    errorGeneratingStory: "生成故仔時出錯",
     errorGeneratingImage: "生成圖片時出錯",
-    
+
     // Stories Drawer
     continueYourAdventures: "繼續你嘅冒險",
     noSavedStoriesYet: "仲未有保存嘅故仔。開始新嘅冒險啦！",
     deleteStory: "刪除故仔",
-    deleteStoryConfirm: "確定要刪除 \"{title}\" 呀？呢個操作冇得返轉頭。",
+    deleteStoryConfirm: '確定要刪除 "{title}" 呀？呢個操作冇得返轉頭。',
     deleteStoryError: "刪除故仔失敗。請再試。",
     cancel: "取消",
     delete: "刪除",
     error: "錯誤",
-    
+
     // Profile Screen
     guestUser: "訪客用戶",
     stories: "故仔",
@@ -220,20 +225,23 @@ export const translations: Record<LanguageCode, Record<string, string>> = {
 
 // Helper hook to use translations
 export function useTranslation() {
-  const { language } = require('@/contexts/LanguageContext').useLanguage();
-  
+  const { language } = require("@/contexts/LanguageContext").useLanguage();
+
   const t = (key: string, params?: Record<string, string>): string => {
-    let text = translations[language][key] || translations.en[key] || key;
-    
+    let text =
+      translations[language as LanguageCode][key] ||
+      translations.en[key] ||
+      key;
+
     // Replace parameters in the text
     if (params) {
       Object.entries(params).forEach(([param, value]) => {
         text = text.replace(`{${param}}`, value);
       });
     }
-    
+
     return text;
   };
-  
+
   return { t };
 }

@@ -113,46 +113,49 @@ export const StoryNode = React.forwardRef<View, StoryNodeProps>(
                 fontFamily: theme.fonts.body,
                 borderTopLeftRadius: imageUrl ? 0 : theme.styles.borderRadius,
                 borderTopRightRadius: imageUrl ? 0 : theme.styles.borderRadius,
-                borderBottomLeftRadius: theme.styles.borderRadius,
-                borderBottomRightRadius: theme.styles.borderRadius,
+                borderBottomLeftRadius: 0,
+                borderBottomRightRadius: 0,
                 borderWidth: theme.styles.borderWidth,
-                borderTopWidth: theme.styles.borderWidth,
+                borderTopWidth: imageUrl ? theme.styles.borderWidth : 0,
+                borderBottomWidth: 0,
               },
             ]}
           >
             {story}
           </ThemedText>
-        </View>
-        <TouchableOpacity
-          onPress={onSelectNarration}
-          style={[
-            styles.selectNarrationButton,
-            {
-              backgroundColor: isCurrentNarration
-                ? colors.accent
-                : colors.secondary,
-              borderColor: colors.border,
-              borderWidth: theme.styles.borderWidth,
-              borderRadius: theme.styles.borderRadius,
-            },
-          ]}
-        >
-          <ThemedText
+          {/* Footer with play button */}
+          <TouchableOpacity
+            onPress={onSelectNarration}
             style={[
-              styles.selectNarrationText,
+              styles.storyFooter,
               {
-                fontFamily: theme.fonts.button,
-                color: isCurrentNarration
-                  ? isDark
-                    ? "#000"
-                    : "#000"
-                  : colors.text,
+                backgroundColor: colors.primary,
+                borderColor: colors.border,
+                borderBottomLeftRadius: theme.styles.borderRadius,
+                borderBottomRightRadius: theme.styles.borderRadius,
+                borderWidth: theme.styles.borderWidth,
+                borderTopWidth: 0,
               },
             ]}
           >
-            {isCurrentNarration ? t("currentlyPlaying") : t("playThisPart")}
-          </ThemedText>
-        </TouchableOpacity>
+            <ThemedText
+              style={[
+                styles.footerText,
+                {
+                  fontFamily: theme.fonts.button,
+                  color: isCurrentNarration
+                    ? isDark
+                      ? "#fff"
+                      : "#000"
+                    : colors.text,
+                  textDecorationLine: "underline",
+                },
+              ]}
+            >
+              {isCurrentNarration ? t("currentlyPlaying") : t("playThisPart")}
+            </ThemedText>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -162,7 +165,7 @@ StoryNode.displayName = "StoryNode";
 
 const styles = StyleSheet.create({
   storyBlock: {
-    marginBottom: 24,
+    marginBottom: 12,
     width: "100%",
     maxWidth: 400,
     alignSelf: "center",
@@ -174,7 +177,8 @@ const styles = StyleSheet.create({
   storyText: {
     fontSize: 14,
     textAlign: "center",
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     marginBottom: 0,
     marginTop: 0,
     lineHeight: 22,
@@ -206,13 +210,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: "center",
   },
-  selectNarrationButton: {
-    marginTop: 8,
-    paddingVertical: 8,
+  storyFooter: {
+    paddingVertical: 6,
     paddingHorizontal: 16,
-    alignSelf: "center",
+    alignItems: "center",
   },
-  selectNarrationText: {
+  footerText: {
     fontSize: 12,
   },
 });
