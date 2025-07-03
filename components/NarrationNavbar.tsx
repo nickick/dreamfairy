@@ -1,7 +1,6 @@
 import { useTheme } from "@/contexts/ThemeContext";
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { NarrationControls } from "./NarrationControls";
 
 interface NarrationNavbarProps {
@@ -14,6 +13,7 @@ interface NarrationNavbarProps {
   onPause: () => void;
   onStop: () => void;
   showControls: boolean;
+  narrationPending?: boolean;
 }
 
 export function NarrationNavbar({
@@ -26,6 +26,7 @@ export function NarrationNavbar({
   onPause,
   onStop,
   showControls,
+  narrationPending = false,
 }: NarrationNavbarProps) {
   const { theme, isDark } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
@@ -55,6 +56,7 @@ export function NarrationNavbar({
           onStop={onStop}
           error={ttsError}
           currentStoryText={currentStoryText}
+          narrationPending={narrationPending}
         />
       </View>
     </View>

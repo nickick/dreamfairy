@@ -50,6 +50,7 @@ export default function StoryScreen() {
   const narrationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const [narrationPending, setNarrationPending] = useState(false);
 
   const { story, choices, loading, error, regenerate } = useGenerateStory(
     typeof seed === "string" && !skipInitialGeneration ? seed : undefined,
@@ -633,6 +634,7 @@ export default function StoryScreen() {
 
   const handleNarrationPlay = async () => {
     if (currentNarrationIndex !== null && steps[currentNarrationIndex]) {
+      setNarrationPending(true);
       const existingNarrationUrl = existingNodeData.get(
         currentNarrationIndex
       )?.narrationUrl;
@@ -641,6 +643,7 @@ export default function StoryScreen() {
         "narrator",
         existingNarrationUrl
       );
+      setNarrationPending(false);
       // If we generated a new narration, save it to the database
       if (!existingNarrationUrl) {
         const newAudioUrl = getLastAudioUrl();
@@ -712,6 +715,16 @@ export default function StoryScreen() {
     pendingNode,
   ]);
 
+  // Set narrationPending to true when generating a new narration (atomic reveal)
+  useEffect(() => {
+    if (pendingNode && pendingNode.story && !pendingNode.narrationUrl) {
+      setNarrationPending(true);
+    }
+    if (pendingNode && pendingNode.narrationUrl) {
+      setNarrationPending(false);
+    }
+  }, [pendingNode]);
+
   return (
     <ThemedView
       style={[styles.outerContainer, { backgroundColor: colors.background }]}
@@ -734,6 +747,7 @@ export default function StoryScreen() {
         onPause={pause}
         onStop={stop}
         showControls={steps.length > 0}
+        narrationPending={narrationPending}
       />
       <ScrollView
         ref={scrollViewRef}

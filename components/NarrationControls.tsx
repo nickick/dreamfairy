@@ -1,9 +1,14 @@
-import React from 'react';
-import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
-import { ThemedText } from './ThemedText';
-import { Ionicons } from '@expo/vector-icons';
-import { useTheme } from '@/contexts/ThemeContext';
-import { useTranslation } from '@/constants/translations';
+import { useTranslation } from "@/constants/translations";
+import { useTheme } from "@/contexts/ThemeContext";
+import { Ionicons } from "@expo/vector-icons";
+import React from "react";
+import {
+  ActivityIndicator,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { ThemedText } from "./ThemedText";
 
 interface NarrationControlsProps {
   isLoading: boolean;
@@ -14,6 +19,7 @@ interface NarrationControlsProps {
   onStop: () => void;
   error?: string | null;
   currentStoryText?: string;
+  narrationPending?: boolean;
 }
 
 export function NarrationControls({
@@ -25,41 +31,49 @@ export function NarrationControls({
   onStop,
   error,
   currentStoryText,
+  narrationPending = false,
 }: NarrationControlsProps) {
   const { theme, isDark } = useTheme();
   const colors = isDark ? theme.colors.dark : theme.colors.light;
   const { t } = useTranslation();
 
+  const showLoading = narrationPending || isLoading;
+
   return (
     <View style={styles.container}>
       {(isPlaying || progress > 0) && (
         <View style={styles.progressWrapper}>
-          <View 
+          <View
             style={[
               styles.progressBar,
               {
                 backgroundColor: colors.border,
                 borderRadius: theme.styles.borderRadius / 2,
-              }
+              },
             ]}
           >
-            <View 
+            <View
               style={[
                 styles.progressFill,
                 {
                   width: `${progress * 100}%`,
                   backgroundColor: colors.accent,
                   borderRadius: theme.styles.borderRadius / 2,
-                }
+                },
               ]}
             />
           </View>
           <View style={styles.controlsWrapper}>
-            {isLoading ? (
+            {showLoading ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="small" color={colors.text} />
-                <ThemedText style={[styles.loadingText, { fontFamily: theme.fonts.body, color: colors.text }]}>
-                  {t('loading')}
+                <ThemedText
+                  style={[
+                    styles.loadingText,
+                    { fontFamily: theme.fonts.body, color: colors.text },
+                  ]}
+                >
+                  {t("voicingOver")}
                 </ThemedText>
               </View>
             ) : (
@@ -73,16 +87,16 @@ export function NarrationControls({
                       borderColor: colors.border,
                       borderWidth: theme.styles.borderWidth,
                       borderRadius: theme.styles.borderRadius,
-                    }
+                    },
                   ]}
                 >
-                  <Ionicons 
-                    name={isPlaying ? "pause" : "play"} 
-                    size={16} 
-                    color={isDark ? '#000' : '#000'} 
+                  <Ionicons
+                    name={isPlaying ? "pause" : "play"}
+                    size={16}
+                    color={isDark ? "#000" : "#000"}
                   />
                 </TouchableOpacity>
-                
+
                 {isPlaying && (
                   <TouchableOpacity
                     onPress={onStop}
@@ -93,7 +107,7 @@ export function NarrationControls({
                         borderColor: colors.border,
                         borderWidth: theme.styles.borderWidth,
                         borderRadius: theme.styles.borderRadius,
-                      }
+                      },
                     ]}
                   >
                     <Ionicons name="stop" size={16} color={colors.text} />
@@ -104,27 +118,32 @@ export function NarrationControls({
           </View>
         </View>
       )}
-      
+
       {!isPlaying && progress === 0 && (
         <View style={styles.standaloneControls}>
-          {isLoading ? (
+          {showLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={colors.text} />
-              <ThemedText style={[styles.loadingText, { fontFamily: theme.fonts.body, color: colors.text }]}>
-                {t('voicingOver')}
+              <ThemedText
+                style={[
+                  styles.loadingText,
+                  { fontFamily: theme.fonts.body, color: colors.text },
+                ]}
+              >
+                {t("voicingOver")}
               </ThemedText>
             </View>
           ) : (
             <>
               {currentStoryText ? (
-                <ThemedText 
+                <ThemedText
                   style={[
-                    styles.textPreview, 
-                    { 
-                      fontFamily: theme.fonts.body, 
+                    styles.textPreview,
+                    {
+                      fontFamily: theme.fonts.body,
                       color: colors.text,
-                      opacity: 0.7 
-                    }
+                      opacity: 0.7,
+                    },
                   ]}
                   numberOfLines={1}
                 >
@@ -138,28 +157,37 @@ export function NarrationControls({
                 style={[
                   styles.button,
                   {
-                    backgroundColor: currentStoryText ? colors.accent : colors.secondary,
+                    backgroundColor: currentStoryText
+                      ? colors.accent
+                      : colors.secondary,
                     borderColor: colors.border,
                     borderWidth: theme.styles.borderWidth,
                     borderRadius: theme.styles.borderRadius,
                     opacity: currentStoryText ? 1 : 0.5,
-                  }
+                  },
                 ]}
                 disabled={!currentStoryText}
               >
-                <Ionicons 
-                  name="play" 
-                  size={16} 
-                  color={currentStoryText ? (isDark ? '#000' : '#000') : colors.text} 
+                <Ionicons
+                  name="play"
+                  size={16}
+                  color={
+                    currentStoryText ? (isDark ? "#000" : "#000") : colors.text
+                  }
                 />
               </TouchableOpacity>
             </>
           )}
         </View>
       )}
-      
+
       {error && (
-        <ThemedText style={[styles.errorText, { fontFamily: theme.fonts.body, color: colors.accent }]}>
+        <ThemedText
+          style={[
+            styles.errorText,
+            { fontFamily: theme.fonts.body, color: colors.accent },
+          ]}
+        >
           {error}
         </ThemedText>
       )}
@@ -169,50 +197,50 @@ export function NarrationControls({
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
+    width: "100%",
   },
   progressWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
     gap: 8,
   },
   progressBar: {
     height: 4,
     flex: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   progressFill: {
-    height: '100%',
+    height: "100%",
   },
   controlsWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   buttonsContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 6,
   },
   button: {
     width: 32,
     height: 32,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   standaloneControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 8,
-    width: '100%',
+    width: "100%",
   },
   textPreview: {
     fontSize: 12,
     flex: 1,
   },
   loadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   loadingText: {
@@ -221,6 +249,6 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 10,
     marginTop: 4,
-    textAlign: 'center',
+    textAlign: "center",
   },
 });
