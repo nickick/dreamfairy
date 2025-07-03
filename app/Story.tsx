@@ -564,7 +564,6 @@ export default function StoryScreen() {
       !steps.some((step) => step.story === story)
     ) {
       // Set pendingNode for the new story
-      console.log("[ATOMIC REVEAL] Setting pendingNode with choices:", choices);
       setPendingNode({
         story,
         choice: null, // or the current choice if available
@@ -627,83 +626,10 @@ export default function StoryScreen() {
 
   // When all assets are ready, move pendingNode to steps and auto-play narration
   useEffect(() => {
-    console.log("[ATOMIC REVEAL] Effect running", pendingNode);
     if (pendingNode && pendingNode.choices.length > 0) {
-      console.log("[ATOMIC REVEAL] loadedChoices set:", pendingNode.choices);
       setLoadedChoices(pendingNode.choices);
     }
-
-    // Debug log all boolean conditions
-    console.log("[ATOMIC REVEAL] Condition checks:", {
-      hasPendingNode: !!pendingNode,
-      hasStory: !!pendingNode?.story,
-      hasChoices: !!(pendingNode?.choices && pendingNode.choices.length > 0),
-      hasImageUrl: !!pendingNode?.imageUrl,
-      hasNarrationUrl: !!pendingNode?.narrationUrl,
-      loadingText: loadingStates.text,
-      loadingChoices: loadingStates.choices,
-      loadingImage: loadingStates.image,
-      loadingNarration: loadingStates.narration,
-    });
-
-    if (
-      pendingNode &&
-      pendingNode.story &&
-      pendingNode.choices.length > 0 &&
-      pendingNode.imageUrl &&
-      pendingNode.narrationUrl &&
-      loadingStates.text &&
-      loadingStates.choices &&
-      loadingStates.image &&
-      loadingStates.narration
-    ) {
-      // Only add if this story is not already in steps
-      if (steps.some((step) => step.story === pendingNode.story)) {
-        console.log(
-          "[ATOMIC REVEAL] Skipping already existing node:",
-          pendingNode.story
-        );
-        setPendingNode(null);
-        setShowLoader(false);
-        return;
-      }
-      const storyToPlay = pendingNode.story;
-      const narrationUrlToPlay = pendingNode.narrationUrl;
-      const choiceToSet = pendingNode.choice;
-      console.log("[ATOMIC REVEAL] About to add node:", {
-        storyToPlay,
-        narrationUrlToPlay,
-        choiceToSet,
-      });
-      const choicesToSet = pendingNode.choices;
-      setLoadedChoices(choicesToSet);
-      console.log("[ATOMIC REVEAL] loadedChoices set:", choicesToSet);
-      setSteps((prev) => {
-        const newSteps = [...prev, { story: storyToPlay, choice: choiceToSet }];
-        setTimeout(() => {
-          const newIdx = newSteps.length - 1;
-          console.log("[ATOMIC REVEAL] newIdx:", newIdx);
-          console.log("[ATOMIC REVEAL] storyToPlay:", storyToPlay);
-          console.log("[ATOMIC REVEAL] newSteps[newIdx]:", newSteps[newIdx]);
-          setCurrentNarrationIndex(newIdx);
-          setAutoPlayNodeIndex(newIdx);
-          console.log(
-            "[ATOMIC REVEAL] Playing narration for:",
-            storyToPlay,
-            narrationUrlToPlay
-          );
-          speak(storyToPlay, "narrator", narrationUrlToPlay);
-          setHasNarratedCurrent(true);
-          setAutoPlayNodeIndex(null);
-        }, 100);
-        return newSteps;
-      });
-      setPendingNode(null);
-      setShowLoader(false);
-      console.log("[ATOMIC REVEAL] Node added and loader hidden.");
-    }
-    // Only depend on pendingNode and loadingStates!
-  }, [pendingNode, loadingStates]);
+  }, [pendingNode]);
 
   const handleNarrationPlay = async () => {
     if (currentNarrationIndex !== null && steps[currentNarrationIndex]) {
@@ -755,9 +681,6 @@ export default function StoryScreen() {
     );
     latestNodeReady = hasExistingAssets || hasPendingAssets;
   }
-
-  // Debug log for loadedChoices
-  console.log("[RENDER] loadedChoices:", loadedChoices);
 
   // On initial load with a seed, set pendingNode immediately
   useEffect(() => {
