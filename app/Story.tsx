@@ -548,19 +548,21 @@ export default function StoryScreen() {
   };
 
   useEffect(() => {
-    // Only trigger for new story content when loader is showing and pendingNode exists
+    // Only trigger for new story content when loader is showing and the story is not already in steps
     if (
       story &&
       choices &&
       !error &&
       !isExistingStoryLoaded &&
       showLoader &&
-      pendingNode
+      !steps.some((step) => step.story === story)
     ) {
-      // Only update pendingNode if it doesn't have story yet
-      if (!pendingNode.story) {
-        setPendingNode((prev) => (prev ? { ...prev, story, choices } : prev));
-      }
+      // Set pendingNode for the new story
+      setPendingNode({
+        story,
+        choice: null, // or the current choice if available
+        choices,
+      });
       // Mark text and choices as loaded immediately
       setLoadingStates((prev) => ({
         ...prev,
@@ -571,7 +573,6 @@ export default function StoryScreen() {
       const generateAssets = async () => {
         if (generatingAssetsRef.current) return;
         generatingAssetsRef.current = true;
-        // Generate image
         let newImageUrl: string | undefined;
         let newNarrationUrl: string | undefined;
         try {
@@ -607,12 +608,9 @@ export default function StoryScreen() {
           generatingAssetsRef.current = false;
         }
       };
-      // Only start asset generation if not already started
-      if (!pendingNode.imageUrl || !pendingNode.narrationUrl) {
-        generateAssets();
-      }
+      generateAssets();
     }
-  }, [story, choices, error, isExistingStoryLoaded, showLoader, pendingNode]);
+  }, [story, choices, error, isExistingStoryLoaded, showLoader, steps]);
 
   // When all assets are ready, move pendingNode to steps and auto-play narration
   useEffect(() => {
@@ -627,21 +625,50 @@ export default function StoryScreen() {
       loadingStates.image &&
       loadingStates.narration
     ) {
-      setSteps((prev) => [
-        ...prev,
-        { story: pendingNode.story, choice: pendingNode.choice },
-      ]);
+      // Only add if this story is not already in steps
+      if (steps.some((step) => step.story === pendingNode.story)) {
+        console.log(
+          "[ATOMIC REVEAL] Skipping already existing node:",
+          pendingNode.story
+        );
+        setPendingNode(null);
+        setShowLoader(false);
+        return;
+      }
+      const storyToPlay = pendingNode.story;
+      const narrationUrlToPlay = pendingNode.narrationUrl;
+      const choiceToSet = pendingNode.choice;
+      console.log("[ATOMIC REVEAL] About to add node:", {
+        storyToPlay,
+        narrationUrlToPlay,
+        choiceToSet,
+      });
+      setSteps((prev) => {
+        const newSteps = [...prev, { story: storyToPlay, choice: choiceToSet }];
+        setTimeout(() => {
+          const newIdx = newSteps.length - 1;
+          console.log("[ATOMIC REVEAL] newIdx:", newIdx);
+          console.log("[ATOMIC REVEAL] storyToPlay:", storyToPlay);
+          console.log("[ATOMIC REVEAL] newSteps[newIdx]:", newSteps[newIdx]);
+          setCurrentNarrationIndex(newIdx);
+          setAutoPlayNodeIndex(newIdx);
+          console.log(
+            "[ATOMIC REVEAL] Playing narration for:",
+            storyToPlay,
+            narrationUrlToPlay
+          );
+          speak(storyToPlay, "narrator", narrationUrlToPlay);
+          setHasNarratedCurrent(true);
+          setAutoPlayNodeIndex(null);
+        }, 100);
+        return newSteps;
+      });
       setPendingNode(null);
       setShowLoader(false);
-      setCurrentNarrationIndex(steps.length); // auto-select the new node
-      setAutoPlayNodeIndex(steps.length);
-      setTimeout(() => {
-        speak(pendingNode.story, "narrator", pendingNode.narrationUrl);
-        setHasNarratedCurrent(true);
-        setAutoPlayNodeIndex(null);
-      }, 100);
+      console.log("[ATOMIC REVEAL] Node added and loader hidden.");
     }
-  }, [pendingNode, loadingStates, steps.length, speak]);
+    // Only depend on pendingNode and loadingStates!
+  }, [pendingNode, loadingStates]);
 
   const handleNarrationPlay = async () => {
     if (currentNarrationIndex !== null && steps[currentNarrationIndex]) {
