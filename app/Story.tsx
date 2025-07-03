@@ -1,6 +1,7 @@
 import { NarrationNavbar } from "@/components/NarrationNavbar";
 import { StoryNode } from "@/components/StoryNode";
-import { LoadingStates, StoryNodeLoader } from "@/components/StoryNodeLoader";
+import { LoadingStates } from "@/components/StoryNodeLoader";
+import { StoryNodeLoaderWrapper } from "@/components/StoryNodeLoaderWrapper";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
 import { VideoBackground } from "@/components/VideoBackground";
@@ -37,7 +38,6 @@ export default function StoryScreen() {
 
   const [steps, setSteps] = useState<StoryStep[]>([]); // Each step: {story, choice}
   const [history, setHistory] = useState<StoryHistoryItem[]>([]); // Full story context for the hook
-  const [pendingChoice, setPendingChoice] = useState<string | null>(null); // Track choice being processed
   const [currentNarrationIndex, setCurrentNarrationIndex] = useState<
     number | null
   >(null);
@@ -51,7 +51,7 @@ export default function StoryScreen() {
     narration: false,
     choices: false,
   });
-  const [showLoader, setShowLoader] = useState(false);
+  const [showLoader, setShowLoader] = useState(true);
   const [hasNarratedCurrent, setHasNarratedCurrent] = useState(false);
   const [autoPlayNodeIndex, setAutoPlayNodeIndex] = useState<number | null>(
     null
@@ -464,7 +464,6 @@ export default function StoryScreen() {
         setSteps((prev) => [...prev, { story, choice: choiceMade }]);
         setCurrentNarrationIndex(steps.length);
         setAutoPlayNodeIndex(steps.length);
-        setPendingChoice(null);
       };
 
       saveNewNode();
@@ -492,54 +491,160 @@ export default function StoryScreen() {
     prevLoading.current = loading;
   }, [loading, choicesPanelHeight]);
 
+  // Hide loader when story is loaded or generated
+  useEffect(() => {
+    if (steps.length > 0 && !loading) {
+      setShowLoader(false);
+    }
+  }, [steps.length, loading]);
+
+  const [pendingNode, setPendingNode] = useState<{
+    story: string;
+    choice: string | null;
+    choices: string[];
+    imageUrl?: string;
+    narrationUrl?: string;
+  } | null>(null);
+
   const handleChoice = (choice: string) => {
-    // When user makes a choice, allow generation
     if (skipInitialGeneration) {
       setSkipInitialGeneration(false);
     }
-    // Clear loaded choices since user is making a new choice
     if (loadedChoices) {
       setLoadedChoices(null);
     }
-    // Reset narration state for new generation
     setHasNarratedCurrent(false);
-    // Stop any currently playing narration
     if (isPlaying) {
       stop();
     }
-    // Clear any pending timeouts
     if (narrationTimeoutRef.current) {
       clearTimeout(narrationTimeoutRef.current);
       narrationTimeoutRef.current = null;
     }
-    // Clear existing story loaded flag to allow asset generation
     if (isExistingStoryLoaded) {
       setIsExistingStoryLoaded(false);
     }
-    // Show loader for new generation
     setShowLoader(true);
-    // Reset loading states for new generation
     setLoadingStates({
       text: false,
       image: false,
       narration: false,
       choices: false,
     });
-    // Store the pending choice
-    setPendingChoice(choice);
+
+    // Set pendingNode immediately to trigger loader
+    setPendingNode({
+      story: "",
+      choice,
+      choices: [],
+    });
 
     // Build the complete history including the current story and the choice being made
     const currentHistory: StoryHistoryItem[] = steps.map((step, index) => ({
       story: step.story,
       choiceMade: index < steps.length - 1 ? steps[index + 1].choice : choice,
     }));
-
     setHistory(currentHistory);
   };
 
+  useEffect(() => {
+    // Only trigger for new story content when loader is showing and pendingNode exists
+    if (
+      story &&
+      choices &&
+      !error &&
+      !isExistingStoryLoaded &&
+      showLoader &&
+      pendingNode
+    ) {
+      // Only update pendingNode if it doesn't have story yet
+      if (!pendingNode.story) {
+        setPendingNode((prev) => (prev ? { ...prev, story, choices } : prev));
+      }
+      // Mark text and choices as loaded immediately
+      setLoadingStates((prev) => ({
+        ...prev,
+        text: true,
+        choices: true,
+      }));
+      // Start generating image and narration in parallel
+      const generateAssets = async () => {
+        if (generatingAssetsRef.current) return;
+        generatingAssetsRef.current = true;
+        // Generate image
+        let newImageUrl: string | undefined;
+        let newNarrationUrl: string | undefined;
+        try {
+          const { EdgeFunctions } = await import("@/lib/edgeFunctions");
+          const [imageResponse, narrationResponse] = await Promise.all([
+            EdgeFunctions.generateImage({
+              prompt: story,
+              width: 512,
+              height: 512,
+            }),
+            EdgeFunctions.textToSpeech({ text: story, voiceType: "narrator" }),
+          ]);
+          newImageUrl = imageResponse.imageUrl;
+          newNarrationUrl = narrationResponse.audioUrl;
+          setPendingNode((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  imageUrl: newImageUrl,
+                  narrationUrl: newNarrationUrl,
+                }
+              : prev
+          );
+        } catch (err) {
+          console.error("[Story] Asset generation failed:", err);
+        } finally {
+          setLoadingStates({
+            text: true,
+            choices: true,
+            image: true,
+            narration: true,
+          });
+          generatingAssetsRef.current = false;
+        }
+      };
+      // Only start asset generation if not already started
+      if (!pendingNode.imageUrl || !pendingNode.narrationUrl) {
+        generateAssets();
+      }
+    }
+  }, [story, choices, error, isExistingStoryLoaded, showLoader, pendingNode]);
+
+  // When all assets are ready, move pendingNode to steps and auto-play narration
+  useEffect(() => {
+    if (
+      pendingNode &&
+      pendingNode.story &&
+      pendingNode.choices.length > 0 &&
+      pendingNode.imageUrl &&
+      pendingNode.narrationUrl &&
+      loadingStates.text &&
+      loadingStates.choices &&
+      loadingStates.image &&
+      loadingStates.narration
+    ) {
+      setSteps((prev) => [
+        ...prev,
+        { story: pendingNode.story, choice: pendingNode.choice },
+      ]);
+      setPendingNode(null);
+      setShowLoader(false);
+      setCurrentNarrationIndex(steps.length); // auto-select the new node
+      setAutoPlayNodeIndex(steps.length);
+      setTimeout(() => {
+        speak(pendingNode.story, "narrator", pendingNode.narrationUrl);
+        setHasNarratedCurrent(true);
+        setAutoPlayNodeIndex(null);
+      }, 100);
+    }
+  }, [pendingNode, loadingStates, steps.length, speak]);
+
   const handleNarrationPlay = async () => {
     if (currentNarrationIndex !== null && steps[currentNarrationIndex]) {
-      // Check if we have an existing narration URL for this node
       const existingNarrationUrl = existingNodeData.get(
         currentNarrationIndex
       )?.narrationUrl;
@@ -548,7 +653,6 @@ export default function StoryScreen() {
         "narrator",
         existingNarrationUrl
       );
-
       // If we generated a new narration, save it to the database
       if (!existingNarrationUrl) {
         const newAudioUrl = getLastAudioUrl();
@@ -556,34 +660,9 @@ export default function StoryScreen() {
           await updateNodeAssets(nodeIds[currentNarrationIndex], {
             narration_url: newAudioUrl,
           });
-
           // Update local data
           const currentData = existingNodeData.get(currentNarrationIndex) || {};
           existingNodeData.set(currentNarrationIndex, {
-            ...currentData,
-            narrationUrl: newAudioUrl,
-          });
-        }
-      }
-    } else if (steps.length > 0) {
-      // If no current narration, play the latest story
-      const latestIndex = steps.length - 1;
-      const existingNarrationUrl =
-        existingNodeData.get(latestIndex)?.narrationUrl;
-      await speak(steps[latestIndex].story, "narrator", existingNarrationUrl);
-      setCurrentNarrationIndex(latestIndex);
-
-      // Save if new
-      if (!existingNarrationUrl) {
-        const newAudioUrl = getLastAudioUrl();
-        if (newAudioUrl && currentStoryId && nodeIds[latestIndex]) {
-          await updateNodeAssets(nodeIds[latestIndex], {
-            narration_url: newAudioUrl,
-          });
-
-          // Update local data
-          const currentData = existingNodeData.get(latestIndex) || {};
-          existingNodeData.set(latestIndex, {
             ...currentData,
             narrationUrl: newAudioUrl,
           });
@@ -594,6 +673,36 @@ export default function StoryScreen() {
 
   // Calculate navbar height: controls height + padding (5+5) + border
   const navbarHeight = 40 + 10 + theme.styles.borderWidth;
+
+  // On initial load with a seed, set pendingNode immediately
+  useEffect(() => {
+    if (
+      typeof seed === "string" &&
+      !skipInitialGeneration &&
+      !isExistingStoryLoaded &&
+      steps.length === 0 &&
+      !pendingNode
+    ) {
+      setShowLoader(true);
+      setLoadingStates({
+        text: false,
+        image: false,
+        narration: false,
+        choices: false,
+      });
+      setPendingNode({
+        story: "",
+        choice: null,
+        choices: [],
+      });
+    }
+  }, [
+    seed,
+    skipInitialGeneration,
+    isExistingStoryLoaded,
+    steps.length,
+    pendingNode,
+  ]);
 
   return (
     <ThemedView
@@ -629,364 +738,290 @@ export default function StoryScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Narrative nodes */}
-        {steps.map((step, idx) => {
-          const isLatestNode = idx === steps.length - 1;
-          const nodeData = existingNodeData.get(idx);
-          // Check if we have pending assets for this specific node
-          const hasPendingAssetsForNode =
-            pendingAssets && pendingAssets.nodeIndex === idx;
-          const imageUrl =
-            hasPendingAssetsForNode && pendingAssets.imageUrl
-              ? pendingAssets.imageUrl
-              : nodeData?.imageUrl;
-          const narrationUrl =
-            hasPendingAssetsForNode && pendingAssets.narrationUrl
-              ? pendingAssets.narrationUrl
-              : nodeData?.narrationUrl;
+        {/* If no nodes yet and pendingNode exists, show only the loader */}
+        {steps.length === 0 && pendingNode ? (
+          <StoryNodeLoaderWrapper
+            showLoader={true}
+            steps={steps}
+            loadingStates={loadingStates}
+            loading={loading}
+            ttsLoading={ttsLoading}
+            isPlaying={isPlaying}
+            hasNarratedCurrent={hasNarratedCurrent}
+            setShowLoader={setShowLoader}
+            setCurrentNarrationIndex={setCurrentNarrationIndex}
+            speak={speak}
+            setHasNarratedCurrent={setHasNarratedCurrent}
+            setAutoPlayNodeIndex={setAutoPlayNodeIndex}
+            autoPlayNodeIndex={autoPlayNodeIndex}
+            pendingAssets={pendingAssets}
+            existingNodeData={existingNodeData}
+            narrationTimeoutRef={narrationTimeoutRef}
+            style={{ marginVertical: 24 }}
+          />
+        ) : (
+          <>
+            {/* Narrative nodes */}
+            {steps.map((step, idx) => {
+              const isLatestNode = idx === steps.length - 1;
+              const nodeData = existingNodeData.get(idx);
+              // Check if we have pending assets for this specific node
+              const hasPendingAssetsForNode =
+                pendingAssets && pendingAssets.nodeIndex === idx;
+              const imageUrl =
+                hasPendingAssetsForNode && pendingAssets.imageUrl
+                  ? pendingAssets.imageUrl
+                  : nodeData?.imageUrl;
+              const narrationUrl =
+                hasPendingAssetsForNode && pendingAssets.narrationUrl
+                  ? pendingAssets.narrationUrl
+                  : nodeData?.narrationUrl;
 
-          // For the latest node being generated, check if all assets are ready
-          const isGeneratingNode = isLatestNode && showLoader;
-          const hasExistingAssets = !!(
-            nodeData?.imageUrl && nodeData?.narrationUrl
-          );
-          const hasPendingAssets = !!(
-            pendingAssets &&
-            pendingAssets.nodeIndex === idx &&
-            pendingAssets.imageUrl &&
-            pendingAssets.narrationUrl
-          );
-          const hasAllAssets = hasExistingAssets || hasPendingAssets;
-
-          // Don't render the latest node if it's still generating and doesn't have all assets
-          if (isGeneratingNode && !hasAllAssets) {
-            return null;
-          }
-
-          return (
-            <StoryNode
-              key={idx}
-              story={step.story}
-              choice={step.choice}
-              isDark={isDark}
-              colors={colors}
-              theme={theme}
-              t={t}
-              onLayout={
-                isLatestNode
-                  ? (e) => (latestY.current = e.nativeEvent.layout.y)
-                  : undefined
-              }
-              isCurrentNarration={currentNarrationIndex === idx}
-              onSelectNarration={async () => {
-                setCurrentNarrationIndex(idx);
-                const existingNarrationUrl =
-                  existingNodeData.get(idx)?.narrationUrl;
-                await speak(step.story, "narrator", existingNarrationUrl);
-
-                // Save if new
-                if (!existingNarrationUrl) {
-                  const newAudioUrl = getLastAudioUrl();
-                  if (newAudioUrl && currentStoryId && nodeIds[idx]) {
-                    await updateNodeAssets(nodeIds[idx], {
-                      narration_url: newAudioUrl,
-                    });
-
-                    // Update local data
-                    const currentData = existingNodeData.get(idx) || {};
-                    existingNodeData.set(idx, {
-                      ...currentData,
-                      narrationUrl: newAudioUrl,
-                    });
+              return (
+                <StoryNode
+                  key={idx}
+                  story={step.story}
+                  choice={step.choice}
+                  isDark={isDark}
+                  colors={colors}
+                  theme={theme}
+                  t={t}
+                  onLayout={
+                    isLatestNode
+                      ? (e) => (latestY.current = e.nativeEvent.layout.y)
+                      : undefined
                   }
-                }
-              }}
-              nodeId={nodeIds[idx]}
-              storyId={currentStoryId || undefined}
-              existingImageUrl={imageUrl}
-            />
-          );
-        })}
-        {/* Show loader for new story node being generated */}
-        {showLoader &&
-          (() => {
-            if (steps.length === 0) {
-              // Show loader even when no steps yet (initial load)
-              return (
-                <StoryNodeLoader
-                  key={`loader-initial`}
-                  states={loadingStates}
-                  onComplete={() => {}}
-                  style={{ marginVertical: 24 }}
-                />
-              );
-            }
+                  isCurrentNarration={currentNarrationIndex === idx}
+                  onSelectNarration={async () => {
+                    setCurrentNarrationIndex(idx);
+                    const existingNarrationUrl =
+                      existingNodeData.get(idx)?.narrationUrl;
+                    await speak(step.story, "narrator", existingNarrationUrl);
 
-            // When generating a new node, we're checking for assets for a node that doesn't exist yet
-            // So we should check if we're waiting for new content (loading is true)
-            const isWaitingForNewContent =
-              loading ||
-              !loadingStates.text ||
-              !loadingStates.image ||
-              !loadingStates.narration ||
-              !loadingStates.choices;
+                    // Save if new
+                    if (!existingNarrationUrl) {
+                      const newAudioUrl = getLastAudioUrl();
+                      if (newAudioUrl && currentStoryId && nodeIds[idx]) {
+                        await updateNodeAssets(nodeIds[idx], {
+                          narration_url: newAudioUrl,
+                        });
 
-            // Only show loader if we're waiting for new content
-            if (isWaitingForNewContent) {
-              return (
-                <StoryNodeLoader
-                  key={`loader-${steps.length}`}
-                  states={loadingStates}
-                  onComplete={() => {
-                    // Clear any existing timeout
-                    if (narrationTimeoutRef.current) {
-                      clearTimeout(narrationTimeoutRef.current);
-                    }
-                    // Defer state update to avoid React warning
-                    narrationTimeoutRef.current = setTimeout(() => {
-                      setShowLoader(false);
-                      // Update narration index to latest and auto-play
-                      const latestIndex = steps.length - 1;
-                      setCurrentNarrationIndex(latestIndex);
-
-                      const narrationUrlToPlay =
-                        (pendingAssets?.nodeIndex === latestIndex
-                          ? pendingAssets?.narrationUrl
-                          : null) ||
-                        existingNodeData.get(latestIndex)?.narrationUrl;
-                      // Only play narration if this is actually a new node being generated
-                      if (
-                        !ttsLoading &&
-                        !isPlaying &&
-                        !hasNarratedCurrent &&
-                        narrationUrlToPlay &&
-                        latestIndex === steps.length - 1 && // Ensure it's the latest node
-                        autoPlayNodeIndex === latestIndex // Only auto-play for the node we expect
-                      ) {
-                        speak(
-                          steps[latestIndex].story,
-                          "narrator",
-                          narrationUrlToPlay
-                        );
-                        setHasNarratedCurrent(true);
-                        setAutoPlayNodeIndex(null); // Clear after playing
+                        // Update local data
+                        const currentData = existingNodeData.get(idx) || {};
+                        existingNodeData.set(idx, {
+                          ...currentData,
+                          narrationUrl: newAudioUrl,
+                        });
                       }
-                    }, 500); // Wait for fade animation to complete
+                    }
                   }}
-                  style={{ marginVertical: 24 }}
+                  nodeId={nodeIds[idx]}
+                  storyId={currentStoryId || undefined}
+                  existingImageUrl={imageUrl}
                 />
               );
-            } else {
-              // All assets ready, hide loader and auto-play narration
-              if (narrationTimeoutRef.current) {
-                clearTimeout(narrationTimeoutRef.current);
-              }
-              narrationTimeoutRef.current = setTimeout(() => {
-                setShowLoader(false);
-                const latestIndex = steps.length - 1;
-                setCurrentNarrationIndex(latestIndex);
+            })}
+            {/* If pendingNode exists, show loader after the last node */}
+            {pendingNode && (
+              <StoryNodeLoaderWrapper
+                showLoader={true}
+                steps={steps}
+                loadingStates={loadingStates}
+                loading={loading}
+                ttsLoading={ttsLoading}
+                isPlaying={isPlaying}
+                hasNarratedCurrent={hasNarratedCurrent}
+                setShowLoader={setShowLoader}
+                setCurrentNarrationIndex={setCurrentNarrationIndex}
+                speak={speak}
+                setHasNarratedCurrent={setHasNarratedCurrent}
+                setAutoPlayNodeIndex={setAutoPlayNodeIndex}
+                autoPlayNodeIndex={autoPlayNodeIndex}
+                pendingAssets={pendingAssets}
+                existingNodeData={existingNodeData}
+                narrationTimeoutRef={narrationTimeoutRef}
+                style={{ marginVertical: 24 }}
+              />
+            )}
+            {/* Choices and divider below the latest narrative node */}
+            {((choices && choices.length > 0) ||
+              (loadedChoices && loadedChoices.length > 0) ||
+              loading ||
+              error) &&
+              !(() => {
+                // Hide choices if we're showing loader for the current node
+                if (!showLoader) return false;
 
-                const nodeData = existingNodeData.get(latestIndex);
-                const narrationUrlToPlay =
-                  (pendingAssets?.nodeIndex === latestIndex
-                    ? pendingAssets?.narrationUrl
-                    : null) || nodeData?.narrationUrl;
-                // Only play narration if this is actually a new node being generated
-                if (
-                  !ttsLoading &&
-                  !isPlaying &&
-                  !hasNarratedCurrent &&
-                  narrationUrlToPlay &&
-                  latestIndex === steps.length - 1 && // Ensure it's the latest node
-                  autoPlayNodeIndex === latestIndex // Only auto-play for the node we expect
-                ) {
-                  speak(
-                    steps[latestIndex].story,
-                    "narrator",
-                    narrationUrlToPlay
-                  );
-                  setHasNarratedCurrent(true);
-                  setAutoPlayNodeIndex(null); // Clear after playing
-                }
-              }, 100);
-              return null;
-            }
-          })()}
-        {/* Choices and divider below the latest narrative node */}
-        {((choices && choices.length > 0) ||
-          (loadedChoices && loadedChoices.length > 0) ||
-          loading ||
-          error) &&
-          !(() => {
-            // Hide choices if we're showing loader for the current node
-            if (!showLoader) return false;
+                if (steps.length === 0) return true; // Initial load
 
-            if (steps.length === 0) return true; // Initial load
+                const latestIdx = steps.length - 1;
+                const nodeData = existingNodeData.get(latestIdx);
+                const hasExistingAssets = !!(
+                  nodeData?.imageUrl && nodeData?.narrationUrl
+                );
+                const hasPendingAssets = !!(
+                  pendingAssets &&
+                  pendingAssets.nodeIndex === latestIdx &&
+                  pendingAssets.imageUrl &&
+                  pendingAssets.narrationUrl
+                );
+                const hasAllAssets = hasExistingAssets || hasPendingAssets;
 
-            const latestIdx = steps.length - 1;
-            const nodeData = existingNodeData.get(latestIdx);
-            const hasExistingAssets = !!(
-              nodeData?.imageUrl && nodeData?.narrationUrl
-            );
-            const hasPendingAssets = !!(
-              pendingAssets &&
-              pendingAssets.nodeIndex === latestIdx &&
-              pendingAssets.imageUrl &&
-              pendingAssets.narrationUrl
-            );
-            const hasAllAssets = hasExistingAssets || hasPendingAssets;
-
-            return !hasAllAssets; // Hide if assets aren't ready
-          })() && (
-            <>
-              {!loading && error && (
-                <View style={{ marginVertical: 24, alignItems: "center" }}>
-                  <ThemedText
-                    style={[styles.errorText, { color: colors.accent }]}
-                  >
-                    {error || "An error occurred"}
-                  </ThemedText>
-                  <TouchableOpacity
-                    onPress={regenerate}
-                    style={[
-                      styles.retryButton,
-                      {
-                        backgroundColor: colors.accent,
-                        borderColor: colors.border,
-                        borderRadius: theme.styles.borderRadius,
-                        borderWidth: theme.styles.borderWidth,
-                      },
-                    ]}
-                  >
-                    <ThemedText style={styles.retryButtonText}>
-                      Try Again
-                    </ThemedText>
-                  </TouchableOpacity>
-                </View>
-              )}
-              {!loading &&
-                !error &&
-                ((choices && choices.length > 0) ||
-                  (loadedChoices && loadedChoices.length > 0)) && (
-                  <>
-                    {/* Gradient divider with record button */}
-                    <View style={styles.gradientBarContainer}>
-                      <LinearGradient
-                        colors={
-                          theme.colors[isDark ? "dark" : "light"]
-                            .gradientColors as any
-                        }
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={[
-                          styles.gradientBarInline,
-                          {
-                            borderColor: colors.border,
-                            borderRadius: theme.styles.borderRadius,
-                            borderWidth: theme.styles.borderWidth,
-                            flex: 1,
-                          },
-                        ]}
+                return !hasAllAssets || pendingNode; // Hide if assets aren't ready or pendingNode exists
+              })() && (
+                <>
+                  {!loading && error && (
+                    <View style={{ marginVertical: 24, alignItems: "center" }}>
+                      <ThemedText
+                        style={[styles.errorText, { color: colors.accent }]}
                       >
-                        <ThemedText
-                          style={[
-                            styles.gradientBarText,
-                            {
-                              fontFamily: theme.fonts.title,
-                              color: isDark ? "#ffffff" : "#111",
-                            },
-                          ]}
-                        >
-                          {t("whatWillYouDoNext")}
-                        </ThemedText>
-                      </LinearGradient>
-                      <VoiceRecorder
-                        onTranscript={(text) => handleChoice(text)}
-                        disabled={loading}
-                        storyContext={
-                          steps.length > 0 ? steps[steps.length - 1].story : ""
-                        }
-                      />
-                    </View>
-                    {/* Choices */}
-                    {(loadedChoices || choices || []).map((choice, idx) => (
+                        {error || "An error occurred"}
+                      </ThemedText>
                       <TouchableOpacity
-                        key={idx}
+                        onPress={regenerate}
                         style={[
-                          styles.choiceButton,
+                          styles.retryButton,
                           {
-                            backgroundColor: colors.secondary,
+                            backgroundColor: colors.accent,
                             borderColor: colors.border,
                             borderRadius: theme.styles.borderRadius,
                             borderWidth: theme.styles.borderWidth,
-                            shadowColor: colors.border,
-                            shadowOffset: theme.styles.shadowOffset,
-                            shadowOpacity: theme.styles.shadowOpacity,
-                            shadowRadius: theme.styles.shadowRadius,
                           },
                         ]}
-                        onPress={() => handleChoice(choice)}
                       >
-                        <ThemedText
-                          style={[
-                            styles.choiceButtonText,
-                            {
-                              fontFamily: theme.fonts.button,
-                              color: colors.text,
-                            },
-                          ]}
-                        >
-                          {choice}
+                        <ThemedText style={styles.retryButtonText}>
+                          Try Again
                         </ThemedText>
                       </TouchableOpacity>
-                    ))}
-                    {/* Divider with 'or' and regenerate button */}
-                    <View style={styles.orDividerContainerInline}>
-                      <ThemedText
-                        style={[
-                          styles.orText,
-                          {
-                            fontFamily: theme.fonts.body,
-                            backgroundColor: colors.background,
-                          },
-                        ]}
-                      >
-                        <>{t("or")}</>
-                      </ThemedText>
-                      <View style={styles.dividerLine} />
                     </View>
-                    <TouchableOpacity
-                      onPress={regenerate}
-                      style={[
-                        styles.regenButtonSmall,
-                        {
-                          backgroundColor: colors.accent,
-                          borderColor: colors.border,
-                          borderRadius: theme.styles.borderRadius,
-                          borderWidth: theme.styles.borderWidth,
-                          shadowColor: colors.border,
-                          shadowOffset: theme.styles.shadowOffset,
-                          shadowOpacity: theme.styles.shadowOpacity,
-                          shadowRadius: theme.styles.shadowRadius,
-                        },
-                      ]}
-                    >
-                      <ThemedText
-                        style={[
-                          styles.regenButtonSmallText,
-                          {
-                            fontFamily: theme.fonts.button,
-                            color: isDark ? "#000" : "#000",
-                          },
-                        ]}
-                      >
-                        {t("regenerateStory")}
-                      </ThemedText>
-                    </TouchableOpacity>
-                  </>
-                )}
-            </>
-          )}
+                  )}
+                  {!loading &&
+                    !error &&
+                    ((choices && choices.length > 0) ||
+                      (loadedChoices && loadedChoices.length > 0)) && (
+                      <>
+                        {/* Gradient divider with record button */}
+                        <View style={styles.gradientBarContainer}>
+                          <LinearGradient
+                            colors={
+                              theme.colors[isDark ? "dark" : "light"]
+                                .gradientColors as any
+                            }
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 0 }}
+                            style={[
+                              styles.gradientBarInline,
+                              {
+                                borderColor: colors.border,
+                                borderRadius: theme.styles.borderRadius,
+                                borderWidth: theme.styles.borderWidth,
+                                flex: 1,
+                              },
+                            ]}
+                          >
+                            <ThemedText
+                              style={[
+                                styles.gradientBarText,
+                                {
+                                  fontFamily: theme.fonts.title,
+                                  color: isDark ? "#ffffff" : "#111",
+                                },
+                              ]}
+                            >
+                              {t("whatWillYouDoNext")}
+                            </ThemedText>
+                          </LinearGradient>
+                          <VoiceRecorder
+                            onTranscript={(text) => handleChoice(text)}
+                            disabled={loading}
+                            storyContext={
+                              steps.length > 0
+                                ? steps[steps.length - 1].story
+                                : ""
+                            }
+                          />
+                        </View>
+                        {/* Choices */}
+                        {(loadedChoices || choices || []).map((choice, idx) => (
+                          <TouchableOpacity
+                            key={idx}
+                            style={[
+                              styles.choiceButton,
+                              {
+                                backgroundColor: colors.secondary,
+                                borderColor: colors.border,
+                                borderRadius: theme.styles.borderRadius,
+                                borderWidth: theme.styles.borderWidth,
+                                shadowColor: colors.border,
+                                shadowOffset: theme.styles.shadowOffset,
+                                shadowOpacity: theme.styles.shadowOpacity,
+                                shadowRadius: theme.styles.shadowRadius,
+                              },
+                            ]}
+                            onPress={() => handleChoice(choice)}
+                          >
+                            <ThemedText
+                              style={[
+                                styles.choiceButtonText,
+                                {
+                                  fontFamily: theme.fonts.button,
+                                  color: colors.text,
+                                },
+                              ]}
+                            >
+                              {choice}
+                            </ThemedText>
+                          </TouchableOpacity>
+                        ))}
+                        {/* Divider with 'or' and regenerate button */}
+                        <View style={styles.orDividerContainerInline}>
+                          <ThemedText
+                            style={[
+                              styles.orText,
+                              {
+                                fontFamily: theme.fonts.body,
+                                backgroundColor: colors.background,
+                              },
+                            ]}
+                          >
+                            <>{t("or")}</>
+                          </ThemedText>
+                          <View style={styles.dividerLine} />
+                        </View>
+                        <TouchableOpacity
+                          onPress={regenerate}
+                          style={[
+                            styles.regenButtonSmall,
+                            {
+                              backgroundColor: colors.accent,
+                              borderColor: colors.border,
+                              borderRadius: theme.styles.borderRadius,
+                              borderWidth: theme.styles.borderWidth,
+                              shadowColor: colors.border,
+                              shadowOffset: theme.styles.shadowOffset,
+                              shadowOpacity: theme.styles.shadowOpacity,
+                              shadowRadius: theme.styles.shadowRadius,
+                            },
+                          ]}
+                        >
+                          <ThemedText
+                            style={[
+                              styles.regenButtonSmallText,
+                              {
+                                fontFamily: theme.fonts.button,
+                                color: isDark ? "#000" : "#000",
+                              },
+                            ]}
+                          >
+                            {t("regenerateStory")}
+                          </ThemedText>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                </>
+              )}
+          </>
+        )}
       </ScrollView>
     </ThemedView>
   );
